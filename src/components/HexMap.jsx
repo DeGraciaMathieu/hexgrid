@@ -1,0 +1,328 @@
+import { useState } from 'react'
+import { COLS, ROWS, HEX_SIZE, TERRAIN, MAP, SQUADS } from '../data/map.js'
+
+const PADDING = 20
+const W = 2 * HEX_SIZE
+const H = Math.sqrt(3) * HEX_SIZE
+const HSPACE = 1.5 * HEX_SIZE
+const VSPACE = H
+
+const SVG_W = HSPACE * (COLS - 1) + W + PADDING * 2
+const SVG_H = VSPACE * (ROWS - 1) + H + VSPACE / 2 + PADDING * 2
+
+function hexCenter(col, row) {
+  const cx = PADDING + HEX_SIZE + col * HSPACE
+  const cy = PADDING + H / 2 + row * VSPACE + (col % 2 === 1 ? VSPACE / 2 : 0)
+  return { cx, cy }
+}
+
+function hexPoints(cx, cy, size) {
+  const pts = []
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 180) * (60 * i)
+    pts.push(`${(cx + size * Math.cos(angle)).toFixed(2)},${(cy + size * Math.sin(angle)).toFixed(2)}`)
+  }
+  return pts.join(' ')
+}
+
+function InfluenceZones() {
+  return (
+    <>
+      <defs>
+        {Object.entries(SQUADS).map(([key, squad]) => (
+          <pattern
+            key={key}
+            id={`zone-${key}`}
+            patternUnits="userSpaceOnUse"
+            width="12"
+            height="12"
+            patternTransform="rotate(45)"
+          >
+            <rect width="12" height="12" fill={squad.color} opacity="0.05" />
+            <line x1="0" y1="0" x2="0" y2="12" stroke={squad.color} strokeWidth="1.5" opacity="0.35" />
+          </pattern>
+        ))}
+      </defs>
+
+      {Object.entries(SQUADS).map(([key, squad]) => {
+        const sorted = [...squad.roster].sort((a, b) => a.col - b.col)
+        const unitPts = sorted.map(u => hexCenter(u.col, u.row))
+        const avgY = unitPts.reduce((s, p) => s + p.cy, 0) / unitPts.length
+        const isTop = avgY < SVG_H / 2
+        const edgeY = isTop ? 0 : SVG_H
+
+        const pts = [
+          `0,${edgeY}`,
+          `0,${unitPts[0].cy.toFixed(2)}`,
+          ...unitPts.map(p => `${p.cx.toFixed(2)},${p.cy.toFixed(2)}`),
+          `${SVG_W},${unitPts[unitPts.length - 1].cy.toFixed(2)}`,
+          `${SVG_W},${edgeY}`,
+        ].join(' ')
+
+        return (
+          <polygon
+            key={key}
+            points={pts}
+            fill={`url(#zone-${key})`}
+            style={{ pointerEvents: 'none' }}
+          />
+        )
+      })}
+    </>
+  )
+}
+
+function SquadLines() {
+  return Object.values(SQUADS).map((squad, i) => {
+    const sorted = [...squad.roster].sort((a, b) => a.col - b.col)
+    const pts = sorted.map(u => {
+      const { cx, cy } = hexCenter(u.col, u.row)
+      return `${cx.toFixed(2)},${cy.toFixed(2)}`
+    }).join(' ')
+
+    return (
+      <polyline
+        key={i}
+        points={pts}
+        fill="none"
+        stroke={squad.color}
+        strokeWidth="1.8"
+        opacity="0.55"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ filter: `drop-shadow(0 0 4px ${squad.color})` }}
+      />
+    )
+  })
+}
+
+function MovementTrails() {
+  return Object.values(SQUADS).map(squad =>
+    squad.roster
+      .filter(u => u.from)
+      .map((unit, i) => {
+        const from = hexCenter(unit.from[0], unit.from[1])
+        const to = hexCenter(unit.col, unit.row)
+        return (
+          <g key={`${squad.color}-${i}`}>
+            <line
+              x1={from.cx} y1={from.cy}
+              x2={to.cx} y2={to.cy}
+              stroke={squad.color}
+              strokeWidth="2.5"
+              opacity="0.7"
+              className="movement-trail"
+            />
+            <circle
+              cx={from.cx} cy={from.cy}
+              r={HEX_SIZE * 0.35}
+              fill="none"
+              stroke={squad.color}
+              strokeWidth="1.2"
+              strokeDasharray="2 2"
+              opacity="0.45"
+            />
+          </g>
+        )
+      })
+  )
+}
+
+function Units({ onHover }) {
+  return Object.values(SQUADS).map(squad =>
+    squad.roster.map((unit, i) => {
+      const { cx, cy } = hexCenter(unit.col, unit.row)
+      return (
+        <g key={`${squad.color}-${i}`}>
+          <circle
+            cx={cx} cy={cy}
+            r={HEX_SIZE * 0.65}
+            fill={squad.color}
+            stroke="#ffffff"
+            strokeWidth="1.5"
+            style={{ filter: `drop-shadow(0 0 8px ${squad.color}) drop-shadow(0 0 2px ${squad.color})` }}
+          />
+          <text
+            x={cx} y={cy + 1}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 16,
+              fontWeight: 700,
+              fill: '#ffffff',
+              paintOrder: 'stroke',
+              stroke: 'rgba(0,0,0,0.6)',
+              strokeWidth: '0.5px',
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}
+          >
+            {unit.code}
+          </text>
+          <circle
+            cx={cx} cy={cy}
+            r={HEX_SIZE * 0.65}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={() => {
+              const movedTag = unit.from ? ' · ADVANCED' : ''
+              const name = squad.label.split('//')[1].trim()
+              onHover(`${name} · ${unit.name} [${unit.code}]${movedTag}`)
+            }}
+          />
+        </g>
+      )
+    })
+  )
+}
+
+function HexTile({ col, row, onHover }) {
+  const type = MAP[row]?.[col] ?? 'open'
+  const terrain = TERRAIN[type]
+  const { cx, cy } = hexCenter(col, row)
+  const coordLabel = `${col.toString(16).toUpperCase()}${row.toString(16).toUpperCase()}`
+  const coord = `${col.toString().padStart(2, '0')}·${row.toString().padStart(2, '0')}`
+
+  return (
+    <g>
+      <polygon
+        points={hexPoints(cx, cy, HEX_SIZE - 1.5)}
+        fill={terrain.fill}
+        stroke="var(--line)"
+        strokeWidth="1"
+        className="hex"
+        style={{ cursor: 'pointer', transition: 'filter 0.18s ease, stroke 0.18s ease' }}
+        onMouseEnter={() => onHover(`${coord} · ${terrain.label}`)}
+      />
+      {terrain.icon && (
+        <text
+          x={cx} y={cy - 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          style={{
+            fontSize: 14,
+            fill: type === 'objective' ? 'var(--accent)' : 'rgba(201,209,217,0.45)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          {terrain.icon}
+        </text>
+      )}
+      <text
+        x={cx} y={cy + HEX_SIZE - 10}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 8,
+          fill: 'var(--text-dim)',
+          pointerEvents: 'none',
+          userSelect: 'none',
+        }}
+      >
+        {coordLabel}
+      </text>
+    </g>
+  )
+}
+
+export default function HexMap() {
+  const [hoverInfo, setHoverInfo] = useState('— · —')
+
+  return (
+    <div>
+      <div style={{ overflowX: 'auto', padding: 12 }}>
+        <svg
+          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+          width={SVG_W}
+          height={SVG_H}
+          style={{ display: 'block', margin: '0 auto', maxWidth: '100%', height: 'auto' }}
+        >
+          <InfluenceZones />
+
+          {Array.from({ length: COLS }, (_, col) =>
+            Array.from({ length: ROWS }, (_, row) => (
+              <HexTile key={`${col}-${row}`} col={col} row={row} onHover={setHoverInfo} />
+            ))
+          )}
+
+          <SquadLines />
+          <MovementTrails />
+          <Units onHover={setHoverInfo} />
+        </svg>
+      </div>
+
+      <Legend />
+
+      <div style={{
+        marginTop: 20,
+        display: 'flex',
+        justifyContent: 'space-between',
+        fontSize: 11,
+        color: 'var(--text-dim)',
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        borderTop: '1px dashed var(--line)',
+        paddingTop: 14,
+      }}>
+        <span>grid.render() ok</span>
+        <span>{hoverInfo}</span>
+      </div>
+    </div>
+  )
+}
+
+function Legend() {
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: 12,
+      }}>
+        {Object.entries(TERRAIN).map(([key, t]) => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--text-dim)' }}>
+            <span style={{
+              width: 22,
+              height: 19,
+              background: t.fill,
+              clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+              border: '1px solid var(--line)',
+              flexShrink: 0,
+            }} />
+            <span>{t.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{
+        marginTop: 22,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gap: 16,
+        borderTop: '1px dashed var(--line)',
+        paddingTop: 18,
+      }}>
+        {Object.values(SQUADS).map(squad => {
+          const codes = [...new Map(squad.roster.map(u => [u.code, u.name])).entries()]
+          return (
+            <div key={squad.label}>
+              <div style={{ fontSize: 11, letterSpacing: '0.25em', color: squad.color, marginBottom: 8 }}>
+                {squad.label}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', fontSize: 12, color: 'var(--text-dim)' }}>
+                {codes.map(([code, name]) => (
+                  <span key={code}>
+                    <span style={{ color: squad.color, fontWeight: 600 }}>[{code}]</span> {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
