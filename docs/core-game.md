@@ -55,11 +55,11 @@ Une unité est capturée si, après un mouvement, **au moins 2 unités ennemies 
 
 ## 5. Respawn
 
-Une unité capturée :
+Une unité capturée est retirée du plateau. Le joueur propriétaire doit immédiatement choisir une case libre sur sa ligne de départ (rangée de bord côté déploiement) pour l'y replacer avant que le jeu ne continue.
 
-- Réapparaît à la zone de départ de son propriétaire.
-- Doit re-marcher normalement vers le front (vitesse 1 ou 3 selon sa position de départ chaque tour).
-- Est immunisée à la mort tant qu'elle est dans la zone de départ.
+- Le choix de la case est libre parmi les cases non occupées de la ligne de départ.
+- L'unité doit re-marcher normalement vers le front (vitesse 1 ou 3 selon sa position de départ chaque tour).
+- Elle est immunisée à la capture tant qu'elle est dans la zone de départ.
 
 ---
 
