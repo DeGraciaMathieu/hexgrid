@@ -9,7 +9,7 @@ Jeu d'affrontement territorial sur plateau hexagonal pour 2 joueurs. Aucun hasar
 ## 1. Matériel et setup
 
 Plateau hexagonal avec deux zones de départ opposées.  
-Chaque joueur dispose de 10 unités placées dans sa zone de départ au début de la partie.
+Chaque joueur dispose de 5 unités placées dans sa zone de départ au début de la partie.
 
 Éléments fixes sur le plateau :
 

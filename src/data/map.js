@@ -42,7 +42,6 @@ export const SQUADS = {
       { col: 3,  row: 1, code: 'S', name: 'Sniper'  },
       { col: 5,  row: 3, code: 'F', name: 'Fighter', from: [5, 1] },
       { col: 7,  row: 2, code: 'G', name: 'Gunner',  from: [7, 1] },
-      { col: 9,  row: 3, code: 'F', name: 'Fighter', from: [9, 1] },
       { col: 11, row: 1, code: 'T', name: 'Trooper' },
     ],
   },
@@ -53,7 +52,6 @@ export const SQUADS = {
     roster: [
       { col: 1,  row: 7, code: 'T', name: 'Trooper' },
       { col: 3,  row: 6, code: 'G', name: 'Gunner',  from: [3, 7] },
-      { col: 4,  row: 6, code: 'F', name: 'Fighter', from: [5, 7] },
       { col: 7,  row: 6, code: 'M', name: 'Medic',   from: [7, 7] },
       { col: 9,  row: 7, code: 'S', name: 'Sniper'  },
       { col: 11, row: 7, code: 'L', name: 'Leader'  },
