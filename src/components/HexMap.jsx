@@ -144,11 +144,33 @@ function ReachableOverlay({ reachableHexes, color }) {
   })
 }
 
-function TargetPlaceholder({ targetHex, color }) {
+function TargetPlaceholder({ targetHex, fromHex, color }) {
   if (!targetHex) return null
   const { cx, cy } = hexCenter(targetHex.col, targetHex.row)
+  const from = fromHex ? hexCenter(fromHex.col, fromHex.row) : null
   return (
     <g style={{ pointerEvents: 'none' }}>
+      {from && (
+        <>
+          <line
+            x1={from.cx} y1={from.cy}
+            x2={cx} y2={cy}
+            stroke={color}
+            strokeWidth="2.5"
+            opacity="0.7"
+            className="movement-trail"
+          />
+          <circle
+            cx={from.cx} cy={from.cy}
+            r={HEX_SIZE * 0.35}
+            fill="none"
+            stroke={color}
+            strokeWidth="1.2"
+            strokeDasharray="2 2"
+            opacity="0.45"
+          />
+        </>
+      )}
       <polygon
         points={hexPoints(cx, cy, HEX_SIZE - 1.5)}
         fill={color}
@@ -291,6 +313,10 @@ export default function HexMap({ units, selectedUnit, targetHex, reachableHexes,
   const [hoverInfo, setHoverInfo] = useState('— · —')
 
   const selectedColor = selectedUnit ? units[selectedUnit.squadKey].color : null
+  const selectedPos = selectedUnit
+    ? { col: units[selectedUnit.squadKey].roster[selectedUnit.unitIndex].col,
+        row: units[selectedUnit.squadKey].roster[selectedUnit.unitIndex].row }
+    : null
 
   return (
     <div>
@@ -316,7 +342,7 @@ export default function HexMap({ units, selectedUnit, targetHex, reachableHexes,
           )}
 
           <ReachableOverlay reachableHexes={reachableHexes} color={selectedColor} />
-          <TargetPlaceholder targetHex={targetHex} color={selectedColor} />
+          <TargetPlaceholder targetHex={targetHex} fromHex={selectedPos} color={selectedColor} />
 
           <SquadLines units={units} />
           <MovementTrails units={units} />
