@@ -8,7 +8,8 @@ function isEnemyCaptured(enemy, friendlyPositions) {
   return count >= 2
 }
 
-// Retourne les ennemis qui seraient capturés si selectedUnit se déplace vers targetPos.
+// Retourne toutes les unités qui seraient capturées si selectedUnit se déplace vers targetPos.
+// Inclut les ennemis encerclés ET l'unité déplacée si elle-même encerclée.
 // Chaque élément : { col, row, squadKey, unitIndex }
 export function getThreatenedEnemies(selectedUnit, targetPos, units) {
   const { squadKey, unitIndex } = selectedUnit
@@ -27,15 +28,24 @@ export function getThreatenedEnemies(selectedUnit, targetPos, units) {
     }
   })
 
-  // Unités ennemies
+  // Positions et unités ennemies
+  const enemyPositions = []
   const enemyUnits = []
   Object.entries(units).forEach(([key, squad]) => {
     if (key !== squadKey) {
       squad.roster.forEach((u, i) => {
+        enemyPositions.push({ col: u.col, row: u.row })
         enemyUnits.push({ col: u.col, row: u.row, squadKey: key, unitIndex: i })
       })
     }
   })
 
-  return enemyUnits.filter(enemy => isEnemyCaptured(enemy, friendlyPositions))
+  const captured = enemyUnits.filter(enemy => isEnemyCaptured(enemy, friendlyPositions))
+
+  // L'unité déplacée est elle-même capturée si 2+ ennemis sont à portée ≤ 2
+  if (isEnemyCaptured({ col: targetPos.col, row: targetPos.row }, enemyPositions)) {
+    captured.push({ col: targetPos.col, row: targetPos.row, squadKey, unitIndex })
+  }
+
+  return captured
 }

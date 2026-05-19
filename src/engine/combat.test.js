@@ -65,12 +65,28 @@ describe('Capture par encerclement', () => {
   })
 
   it("plusieurs ennemis peuvent être capturés simultanément", () => {
+    // Ally 0 se déplace en (2,4) : dist 1 de ennemi (3,4), dist 3 de ennemi (5,4) → pas capturé
+    // Ally 1 en (4,4) : dist 1 des deux ennemis
+    // Ally 2 en (6,4) : dist 1 de ennemi (5,4) seulement
+    // → ennemi (3,4) capturé par ally 0 + ally 1, ennemi (5,4) capturé par ally 1 + ally 2
     const units = buildUnits(
-      [[4, 4], [6, 4]],   // deux alliés encadrent deux ennemis
-      [[5, 3], [5, 5]],   // deux ennemis chacun à portée des deux alliés
+      [[0, 0], [4, 4], [6, 4]],
+      [[3, 4], [5, 4]],
     )
-    const threatened = getThreatenedEnemies(selectedFirst, { col: 4, row: 4 }, units)
+    const threatened = getThreatenedEnemies(selectedFirst, { col: 2, row: 4 }, units)
     expect(threatened.length).toBe(2)
+  })
+
+  it("l'unité déplacée est elle-même capturée si 2 ennemis sont à portée après son mouvement", () => {
+    // Ally 0 se déplace en (5,4), aucun autre allié
+    // Deux ennemis en (4,4) et (6,4), tous deux à distance 1 de la destination
+    const units = buildUnits(
+      [[0, 0]],
+      [[4, 4], [6, 4]],
+    )
+    const threatened = getThreatenedEnemies(selectedFirst, { col: 5, row: 4 }, units)
+    expect(threatened.length).toBe(1)
+    expect(threatened[0]).toMatchObject({ squadKey: 'p1', unitIndex: 0 })
   })
 
   it("un ennemi adjacent (distance 1) à 2 alliés est capturé", () => {
