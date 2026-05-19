@@ -320,7 +320,26 @@ function HexTile({ col, row, onHover, onClick }) {
   )
 }
 
-export default function HexMap({ units, selectedUnit, targetHex, reachableHexes, onSelectUnit, onSelectHex }) {
+function ThreatenedUnits({ threatenedEnemies }) {
+  if (!threatenedEnemies.length) return null
+  return threatenedEnemies.map(({ col, row, squadKey, unitIndex }) => {
+    const { cx, cy } = hexCenter(col, row)
+    return (
+      <circle
+        key={`threatened-${squadKey}-${unitIndex}`}
+        cx={cx} cy={cy}
+        r={HEX_SIZE * 0.82}
+        fill="none"
+        stroke="#ff3333"
+        strokeWidth="2"
+        className="threatened-ring"
+        style={{ filter: 'drop-shadow(0 0 5px #ff3333)', pointerEvents: 'none' }}
+      />
+    )
+  })
+}
+
+export default function HexMap({ units, selectedUnit, targetHex, reachableHexes, threatenedEnemies = [], onSelectUnit, onSelectHex }) {
   const [hoverInfo, setHoverInfo] = useState('— · —')
 
   const selectedColor = selectedUnit ? units[selectedUnit.squadKey].color : null
@@ -363,6 +382,7 @@ export default function HexMap({ units, selectedUnit, targetHex, reachableHexes,
             onSelectUnit={onSelectUnit}
             onHover={setHoverInfo}
           />
+          <ThreatenedUnits threatenedEnemies={threatenedEnemies} />
         </svg>
       </div>
 

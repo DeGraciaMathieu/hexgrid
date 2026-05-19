@@ -2,6 +2,7 @@ import { useState } from 'react'
 import HexMap from './components/HexMap.jsx'
 import { SQUADS, COLS, ROWS } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
+import { getThreatenedEnemies } from './engine/combat.js'
 
 const MOVE_RANGE = 3 // TODO: dépend du territoire (§3 core-game.md)
 
@@ -27,6 +28,10 @@ export default function App() {
         COLS,
         ROWS,
       )
+    : []
+
+  const threatenedEnemies = selectedUnit && targetHex
+    ? getThreatenedEnemies(selectedUnit, targetHex, units)
     : []
 
   function handleSelectUnit(squadKey, unitIndex) {
@@ -103,6 +108,7 @@ export default function App() {
           selectedUnit={selectedUnit}
           targetHex={targetHex}
           reachableHexes={reachableHexes}
+          threatenedEnemies={threatenedEnemies}
           onSelectUnit={handleSelectUnit}
           onSelectHex={handleSelectHex}
         />
