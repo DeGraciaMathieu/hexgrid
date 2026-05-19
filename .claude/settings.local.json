@@ -1,0 +1,22 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(git add:*)",
+            "Bash(git commit:*)"
+        ]
+    },
+    "hooks": {
+        "Stop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "bash scripts/run-tests.sh",
+                        "timeout": 30,
+                        "statusMessage": "Running tests..."
+                    }
+                ]
+            }
+        ]
+    }
+}
