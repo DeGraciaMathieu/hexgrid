@@ -36,6 +36,7 @@ export const SQUADS = {
   p2: {
     label: 'PLAYER 2 // RED CELL',
     color: '#ff5a4a',
+    startRow: 0,
     roster: [
       { col: 1,  row: 1, code: 'L', name: 'Leader'  },
       { col: 3,  row: 1, code: 'S', name: 'Sniper'  },
@@ -48,6 +49,7 @@ export const SQUADS = {
   p1: {
     label: 'PLAYER 1 // BLUE CELL',
     color: '#58a6ff',
+    startRow: 8,
     roster: [
       { col: 1,  row: 7, code: 'T', name: 'Trooper' },
       { col: 3,  row: 6, code: 'G', name: 'Gunner',  from: [3, 7] },

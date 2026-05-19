@@ -3,6 +3,7 @@ import HexMap from './components/HexMap.jsx'
 import { SQUADS, COLS, ROWS } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
 import { getThreatenedEnemies } from './engine/combat.js'
+import { countTerritoryHexes } from './engine/territory.js'
 
 const MOVE_RANGE = 3 // TODO: dépend du territoire (§3 core-game.md)
 
@@ -19,22 +20,45 @@ export default function App() {
   const [units, setUnits] = useState(initUnits)
   const [selectedUnit, setSelectedUnit] = useState(null) // { squadKey, unitIndex }
   const [targetHex, setTargetHex] = useState(null)       // { col, row }
+  const [phase, setPhase] = useState('move')             // 'move' | 'respawn'
+  const [respawnQueue, setRespawnQueue] = useState([])   // [{ squadKey, unit }]
 
-  const reachableHexes = selectedUnit
+  const occupiedHexes = selectedUnit
+    ? Object.entries(units).flatMap(([key, squad]) =>
+        squad.roster.flatMap((u, i) =>
+          key === selectedUnit.squadKey && i === selectedUnit.unitIndex ? [] : [{ col: u.col, row: u.row }]
+        )
+      )
+    : []
+
+  const reachableHexes = phase === 'move' && selectedUnit
     ? getReachableHexes(
         units[selectedUnit.squadKey].roster[selectedUnit.unitIndex].col,
         units[selectedUnit.squadKey].roster[selectedUnit.unitIndex].row,
         MOVE_RANGE,
         COLS,
         ROWS,
+        occupiedHexes,
       )
     : []
 
-  const threatenedEnemies = selectedUnit && targetHex
+  const threatenedEnemies = phase === 'move' && selectedUnit && targetHex
     ? getThreatenedEnemies(selectedUnit, targetHex, units)
     : []
 
+  const respawnHexes = (() => {
+    if (phase !== 'respawn' || respawnQueue.length === 0) return []
+    const { squadKey } = respawnQueue[0]
+    const startRow = SQUADS[squadKey].startRow
+    const occupiedSet = new Set(
+      Object.values(units).flatMap(s => s.roster.map(u => `${u.col},${u.row}`))
+    )
+    return Array.from({ length: COLS }, (_, col) => ({ col, row: startRow }))
+      .filter(h => !occupiedSet.has(`${h.col},${h.row}`))
+  })()
+
   function handleSelectUnit(squadKey, unitIndex) {
+    if (phase === 'respawn') return
     if (selectedUnit?.squadKey === squadKey && selectedUnit?.unitIndex === unitIndex) {
       setSelectedUnit(null)
       setTargetHex(null)
@@ -45,6 +69,10 @@ export default function App() {
   }
 
   function handleSelectHex(col, row) {
+    if (phase === 'respawn') {
+      handleRespawnPlace(col, row)
+      return
+    }
     if (!selectedUnit) return
     const isReachable = reachableHexes.some(h => h.col === col && h.row === row)
     if (isReachable) setTargetHex({ col, row })
@@ -52,16 +80,61 @@ export default function App() {
 
   function handleConfirmMove() {
     if (!selectedUnit || !targetHex) return
+
+    const capturedUnitsData = threatenedEnemies.map(({ squadKey, unitIndex }) => ({
+      squadKey,
+      unit: { ...units[squadKey].roster[unitIndex] },
+    }))
+
     setUnits(prev => {
       const next = { ...prev }
+
       const roster = next[selectedUnit.squadKey].roster.map((u, i) =>
         i === selectedUnit.unitIndex ? { ...u, col: targetHex.col, row: targetHex.row, from: undefined } : u
       )
       next[selectedUnit.squadKey] = { ...next[selectedUnit.squadKey], roster }
+
+      const capturedBySquad = {}
+      threatenedEnemies.forEach(({ squadKey, unitIndex }) => {
+        if (!capturedBySquad[squadKey]) capturedBySquad[squadKey] = new Set()
+        capturedBySquad[squadKey].add(unitIndex)
+      })
+      Object.entries(capturedBySquad).forEach(([squadKey, indices]) => {
+        next[squadKey] = {
+          ...next[squadKey],
+          roster: next[squadKey].roster.filter((_, i) => !indices.has(i)),
+        }
+      })
+
       return next
     })
+
     setSelectedUnit(null)
     setTargetHex(null)
+
+    if (capturedUnitsData.length > 0) {
+      setRespawnQueue(capturedUnitsData)
+      setPhase('respawn')
+    }
+  }
+
+  function handleRespawnPlace(col, row) {
+    const isValid = respawnHexes.some(h => h.col === col && h.row === row)
+    if (!isValid) return
+
+    const { squadKey, unit } = respawnQueue[0]
+    setUnits(prev => {
+      const next = { ...prev }
+      next[squadKey] = {
+        ...next[squadKey],
+        roster: [...next[squadKey].roster, { ...unit, col, row, from: undefined }],
+      }
+      return next
+    })
+
+    const newQueue = respawnQueue.slice(1)
+    setRespawnQueue(newQueue)
+    if (newQueue.length === 0) setPhase('move')
   }
 
   function handleCancel() {
@@ -95,6 +168,19 @@ export default function App() {
           <span className="blink" />
           tactical map · 13 × 9 · 2 squads engaged
         </span>
+        {(() => {
+          const counts = countTerritoryHexes(units)
+          return (
+            <div style={{ display: 'flex', gap: 24, fontSize: 12, letterSpacing: '0.15em', marginTop: 4 }}>
+              {Object.entries(units).map(([key, squad]) => (
+                <span key={key}>
+                  <span style={{ color: squad.color }}>{squad.label.split('//')[1].trim()}</span>
+                  <span style={{ color: 'var(--text-dim)' }}> · {counts[key] ?? 0} hex</span>
+                </span>
+              ))}
+            </div>
+          )
+        })()}
       </header>
 
       <div style={{
@@ -109,11 +195,31 @@ export default function App() {
           targetHex={targetHex}
           reachableHexes={reachableHexes}
           threatenedEnemies={threatenedEnemies}
+          respawnHexes={respawnHexes}
+          respawnSquadColor={phase === 'respawn' && respawnQueue.length > 0 ? units[respawnQueue[0].squadKey].color : null}
           onSelectUnit={handleSelectUnit}
           onSelectHex={handleSelectHex}
         />
 
-        {selectedUnit && (
+        {phase === 'respawn' && respawnQueue.length > 0 && (
+          <div style={{
+            marginTop: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            borderTop: '1px dashed var(--line)',
+            paddingTop: 16,
+          }}>
+            <span style={{ fontSize: 12, flex: 1 }}>
+              <span style={{ color: units[respawnQueue[0].squadKey].color, fontWeight: 600 }}>
+                [{respawnQueue[0].unit.code}] {respawnQueue[0].unit.name}
+              </span>
+              <span style={{ color: 'var(--text-dim)' }}> — sélectionnez une case sur la ligne de départ</span>
+            </span>
+          </div>
+        )}
+
+        {phase === 'move' && selectedUnit && (
           <div style={{
             marginTop: 16,
             display: 'flex',

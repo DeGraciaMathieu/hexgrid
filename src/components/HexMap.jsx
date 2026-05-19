@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { COLS, ROWS, HEX_SIZE, TERRAIN, MAP } from '../data/map.js'
-import { computeFrontierPoints } from '../engine/frontier.js'
+import { computeFrontierPoints, checkExtensions } from '../engine/frontier.js'
 
 const PADDING = 20
 const W = 2 * HEX_SIZE
@@ -57,13 +57,18 @@ function InfluenceZones({ units }) {
           .flatMap(([, s]) => s.roster.map(u => hexCenter(u.col, u.row)))
 
         const frontierPts = computeFrontierPoints(unitPts, isTop, enemyPts)
+        const { leftBlocked, rightBlocked } = checkExtensions(frontierPts, isTop, enemyPts)
 
         const pts = [
-          `0,${edgeY}`,
-          `0,${frontierPts[0].cy.toFixed(2)}`,
+          leftBlocked
+            ? `${frontierPts[0].cx.toFixed(2)},${edgeY}`
+            : `0,${edgeY}`,
+          ...(leftBlocked ? [] : [`0,${frontierPts[0].cy.toFixed(2)}`]),
           ...frontierPts.map(p => `${p.cx.toFixed(2)},${p.cy.toFixed(2)}`),
-          `${SVG_W},${frontierPts[frontierPts.length - 1].cy.toFixed(2)}`,
-          `${SVG_W},${edgeY}`,
+          ...(rightBlocked ? [] : [`${SVG_W},${frontierPts[frontierPts.length - 1].cy.toFixed(2)}`]),
+          rightBlocked
+            ? `${frontierPts[frontierPts.length - 1].cx.toFixed(2)},${edgeY}`
+            : `${SVG_W},${edgeY}`,
         ].join(' ')
 
         return (
@@ -320,6 +325,24 @@ function HexTile({ col, row, onHover, onClick }) {
   )
 }
 
+function RespawnOverlay({ respawnHexes, color }) {
+  if (!respawnHexes.length) return null
+  return respawnHexes.map(({ col, row }) => {
+    const { cx, cy } = hexCenter(col, row)
+    return (
+      <polygon
+        key={`respawn-${col}-${row}`}
+        points={hexPoints(cx, cy, HEX_SIZE - 1.5)}
+        fill={color}
+        stroke={color}
+        strokeWidth="1.5"
+        className="respawn-hex"
+        style={{ pointerEvents: 'none' }}
+      />
+    )
+  })
+}
+
 function ThreatenedUnits({ threatenedEnemies }) {
   if (!threatenedEnemies.length) return null
   return threatenedEnemies.map(({ col, row, squadKey, unitIndex }) => {
@@ -339,7 +362,7 @@ function ThreatenedUnits({ threatenedEnemies }) {
   })
 }
 
-export default function HexMap({ units, selectedUnit, targetHex, reachableHexes, threatenedEnemies = [], onSelectUnit, onSelectHex }) {
+export default function HexMap({ units, selectedUnit, targetHex, reachableHexes, threatenedEnemies = [], respawnHexes = [], respawnSquadColor = null, onSelectUnit, onSelectHex }) {
   const [hoverInfo, setHoverInfo] = useState('— · —')
 
   const selectedColor = selectedUnit ? units[selectedUnit.squadKey].color : null
@@ -372,6 +395,7 @@ export default function HexMap({ units, selectedUnit, targetHex, reachableHexes,
           )}
 
           <ReachableOverlay reachableHexes={reachableHexes} color={selectedColor} />
+          <RespawnOverlay respawnHexes={respawnHexes} color={respawnSquadColor} />
           <TargetPlaceholder targetHex={targetHex} fromHex={selectedPos} color={selectedColor} />
 
           <SquadLines units={units} />
