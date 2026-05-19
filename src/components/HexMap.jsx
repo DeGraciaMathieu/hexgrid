@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { COLS, ROWS, HEX_SIZE, TERRAIN, MAP, SQUADS } from '../data/map.js'
+import { COLS, ROWS, HEX_SIZE, TERRAIN, MAP } from '../data/map.js'
 
 const PADDING = 20
 const W = 2 * HEX_SIZE
@@ -25,11 +25,11 @@ function hexPoints(cx, cy, size) {
   return pts.join(' ')
 }
 
-function InfluenceZones() {
+function InfluenceZones({ units }) {
   return (
     <>
       <defs>
-        {Object.entries(SQUADS).map(([key, squad]) => (
+        {Object.entries(units).map(([key, squad]) => (
           <pattern
             key={key}
             id={`zone-${key}`}
@@ -44,7 +44,7 @@ function InfluenceZones() {
         ))}
       </defs>
 
-      {Object.entries(SQUADS).map(([key, squad]) => {
+      {Object.entries(units).map(([key, squad]) => {
         const sorted = [...squad.roster].sort((a, b) => a.col - b.col)
         const unitPts = sorted.map(u => hexCenter(u.col, u.row))
         const avgY = unitPts.reduce((s, p) => s + p.cy, 0) / unitPts.length
@@ -72,8 +72,8 @@ function InfluenceZones() {
   )
 }
 
-function SquadLines() {
-  return Object.values(SQUADS).map((squad, i) => {
+function SquadLines({ units }) {
+  return Object.values(units).map((squad, i) => {
     const sorted = [...squad.roster].sort((a, b) => a.col - b.col)
     const pts = sorted.map(u => {
       const { cx, cy } = hexCenter(u.col, u.row)
@@ -96,8 +96,8 @@ function SquadLines() {
   })
 }
 
-function MovementTrails() {
-  return Object.values(SQUADS).map(squad =>
+function MovementTrails({ units }) {
+  return Object.values(units).map(squad =>
     squad.roster
       .filter(u => u.from)
       .map((unit, i) => {
@@ -128,20 +128,76 @@ function MovementTrails() {
   )
 }
 
-function Units({ onHover }) {
-  return Object.values(SQUADS).map(squad =>
-    squad.roster.map((unit, i) => {
+function ReachableOverlay({ reachableHexes, color }) {
+  if (!reachableHexes.length) return null
+  return reachableHexes.map(({ col, row }) => {
+    const { cx, cy } = hexCenter(col, row)
+    return (
+      <polygon
+        key={`reach-${col}-${row}`}
+        points={hexPoints(cx, cy, HEX_SIZE - 1.5)}
+        fill={color}
+        opacity="0.18"
+        style={{ pointerEvents: 'none' }}
+      />
+    )
+  })
+}
+
+function TargetPlaceholder({ targetHex, color }) {
+  if (!targetHex) return null
+  const { cx, cy } = hexCenter(targetHex.col, targetHex.row)
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <polygon
+        points={hexPoints(cx, cy, HEX_SIZE - 1.5)}
+        fill={color}
+        opacity="0.25"
+      />
+      <circle
+        cx={cx} cy={cy}
+        r={HEX_SIZE * 0.55}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeDasharray="4 3"
+        opacity="0.8"
+      />
+    </g>
+  )
+}
+
+function Units({ units, selectedUnit, onSelectUnit, onHover }) {
+  return Object.entries(units).map(([squadKey, squad]) =>
+    squad.roster.map((unit, unitIndex) => {
       const { cx, cy } = hexCenter(unit.col, unit.row)
+      const isSelected = selectedUnit?.squadKey === squadKey && selectedUnit?.unitIndex === unitIndex
       return (
-        <g key={`${squad.color}-${i}`}>
+        <g key={`${squadKey}-${unitIndex}`}>
           <circle
             cx={cx} cy={cy}
             r={HEX_SIZE * 0.65}
             fill={squad.color}
             stroke="#ffffff"
-            strokeWidth="1.5"
-            style={{ filter: `drop-shadow(0 0 8px ${squad.color}) drop-shadow(0 0 2px ${squad.color})` }}
+            strokeWidth={isSelected ? 2.5 : 1.5}
+            style={{
+              filter: isSelected
+                ? `drop-shadow(0 0 12px ${squad.color}) drop-shadow(0 0 4px ${squad.color})`
+                : `drop-shadow(0 0 8px ${squad.color}) drop-shadow(0 0 2px ${squad.color})`,
+            }}
           />
+          {isSelected && (
+            <circle
+              cx={cx} cy={cy}
+              r={HEX_SIZE * 0.75}
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+              opacity="0.6"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
           <text
             x={cx} y={cy + 1}
             textAnchor="middle"
@@ -170,6 +226,7 @@ function Units({ onHover }) {
               const name = squad.label.split('//')[1].trim()
               onHover(`${name} · ${unit.name} [${unit.code}]${movedTag}`)
             }}
+            onClick={() => onSelectUnit(squadKey, unitIndex)}
           />
         </g>
       )
@@ -177,7 +234,7 @@ function Units({ onHover }) {
   )
 }
 
-function HexTile({ col, row, onHover }) {
+function HexTile({ col, row, onHover, onClick }) {
   const type = MAP[row]?.[col] ?? 'open'
   const terrain = TERRAIN[type]
   const { cx, cy } = hexCenter(col, row)
@@ -194,6 +251,7 @@ function HexTile({ col, row, onHover }) {
         className="hex"
         style={{ cursor: 'pointer', transition: 'filter 0.18s ease, stroke 0.18s ease' }}
         onMouseEnter={() => onHover(`${coord} · ${terrain.label}`)}
+        onClick={onClick}
       />
       {terrain.icon && (
         <text
@@ -229,8 +287,10 @@ function HexTile({ col, row, onHover }) {
   )
 }
 
-export default function HexMap() {
+export default function HexMap({ units, selectedUnit, targetHex, reachableHexes, onSelectUnit, onSelectHex }) {
   const [hoverInfo, setHoverInfo] = useState('— · —')
+
+  const selectedColor = selectedUnit ? units[selectedUnit.squadKey].color : null
 
   return (
     <div>
@@ -241,21 +301,35 @@ export default function HexMap() {
           height={SVG_H}
           style={{ display: 'block', margin: '0 auto', maxWidth: '100%', height: 'auto' }}
         >
-          <InfluenceZones />
+          <InfluenceZones units={units} />
 
           {Array.from({ length: COLS }, (_, col) =>
             Array.from({ length: ROWS }, (_, row) => (
-              <HexTile key={`${col}-${row}`} col={col} row={row} onHover={setHoverInfo} />
+              <HexTile
+                key={`${col}-${row}`}
+                col={col}
+                row={row}
+                onHover={setHoverInfo}
+                onClick={() => onSelectHex(col, row)}
+              />
             ))
           )}
 
-          <SquadLines />
-          <MovementTrails />
-          <Units onHover={setHoverInfo} />
+          <ReachableOverlay reachableHexes={reachableHexes} color={selectedColor} />
+          <TargetPlaceholder targetHex={targetHex} color={selectedColor} />
+
+          <SquadLines units={units} />
+          <MovementTrails units={units} />
+          <Units
+            units={units}
+            selectedUnit={selectedUnit}
+            onSelectUnit={onSelectUnit}
+            onHover={setHoverInfo}
+          />
         </svg>
       </div>
 
-      <Legend />
+      <Legend units={units} />
 
       <div style={{
         marginTop: 20,
@@ -275,7 +349,7 @@ export default function HexMap() {
   )
 }
 
-function Legend() {
+function Legend({ units }) {
   return (
     <div style={{ marginTop: 24 }}>
       <div style={{
@@ -306,7 +380,7 @@ function Legend() {
         borderTop: '1px dashed var(--line)',
         paddingTop: 18,
       }}>
-        {Object.values(SQUADS).map(squad => {
+        {Object.values(units).map(squad => {
           const codes = [...new Map(squad.roster.map(u => [u.code, u.name])).entries()]
           return (
             <div key={squad.label}>
