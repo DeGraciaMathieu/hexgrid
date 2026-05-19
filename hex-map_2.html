@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Carte Hexagonale — Tactical Grid</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-2: #161b22;
+    --line: #30363d;
+    --line-bright: #58a6ff;
+    --text: #c9d1d9;
+    --text-dim: #6e7681;
+    --accent: #ff7b00;
+
+    --terrain-open:     #2d3a2d;
+    --terrain-forest:   #1e3a2a;
+    --terrain-water:    #1a3a4f;
+    --terrain-mountain: #3a3530;
+    --terrain-urban:    #2a2530;
+    --terrain-objective:#4a3a1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(88, 166, 255, 0.08), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(255, 123, 0, 0.06), transparent 50%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(48,54,61,0.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(48,54,61,0.15) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 28px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 20px;
+  }
+
+  .tag {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-family: 'Major Mono Display', monospace;
+    font-size: clamp(28px, 5vw, 44px);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .panel {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px;
+  }
+
+  .map-wrap {
+    position: relative;
+    overflow: auto;
+    padding: 12px;
+  }
+
+  svg.hex-map {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .hex {
+    stroke: var(--line);
+    stroke-width: 1;
+    transition: filter 0.18s ease, stroke 0.18s ease;
+    cursor: pointer;
+  }
+  .hex:hover {
+    stroke: var(--line-bright);
+    stroke-width: 1.5;
+    filter: brightness(1.3);
+  }
+
+  .hex-coord {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    fill: var(--text-dim);
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .terrain-icon {
+    font-size: 14px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .unit-ring {
+    filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 2px currentColor);
+  }
+  .squad-line {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 4px currentColor);
+  }
+  .influence-zone {
+    pointer-events: none;
+  }
+  .zone-edge {
+    fill: none;
+    stroke-linecap: round;
+    opacity: 0.55;
+  }
+  .movement-trail {
+    stroke-dasharray: 5 4;
+    animation: trail-flow 0.8s linear infinite;
+  }
+  @keyframes trail-flow {
+    to { stroke-dashoffset: -18; }
+  }
+  .ghost-marker {
+    fill: none;
+    stroke-dasharray: 2 2;
+    opacity: 0.45;
+  }
+  .unit-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+    user-select: none;
+    fill: #ffffff;
+    paint-order: stroke;
+    stroke: rgba(0,0,0,0.6);
+    stroke-width: 0.5px;
+  }
+  .unit-bar {
+    fill: rgba(0,0,0,0.55);
+    stroke: currentColor;
+    stroke-width: 1;
+  }
+  .squad-banner {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .legend {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .legend-swatch {
+    width: 22px;
+    height: 19px;
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+    border: 1px solid var(--line);
+  }
+
+  .footer-info {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-top: 1px dashed var(--line);
+    padding-top: 14px;
+  }
+
+  .blink {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes blink {
+    0%, 60%, 100% { opacity: 1; }
+    30% { opacity: 0.2; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="tag">// sector-07 / recon overlay</span>
+    <h1>hex grid</h1>
+    <span class="subtitle"><span class="blink"></span>tactical map · 13 × 9 · 2 squads engaged</span>
+  </header>
+
+  <div class="panel">
+    <div class="map-wrap">
+      <svg id="hexmap" class="hex-map" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <div class="legend" id="legend"></div>
+
+    <div class="footer-info">
+      <span>grid.render() ok</span>
+      <span id="hover-info">— · —</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- Hex grid configuration -------------------------------------------
+  const COLS = 13;
+  const ROWS = 9;
+  const SIZE = 32;                          // hex radius (center → corner)
+  const W = 2 * SIZE;                       // hex width
+  const H = Math.sqrt(3) * SIZE;            // hex height
+  const HSPACE = 1.5 * SIZE;                // horizontal step between centers
+  const VSPACE = H;                         // vertical step between centers
+
+  const PADDING = 20;
+  const svgW = HSPACE * (COLS - 1) + W + PADDING * 2;
+  const svgH = VSPACE * (ROWS - 1) + H + VSPACE / 2 + PADDING * 2;
+
+  const TERRAIN = {
+    open:      { fill: 'var(--terrain-open)',      label: 'Terrain ouvert',  icon: '·'  },
+    forest:    { fill: 'var(--terrain-forest)',    label: 'Forêt',           icon: '♣'  },
+    water:     { fill: 'var(--terrain-water)',     label: 'Eau',             icon: '~'  },
+    mountain:  { fill: 'var(--terrain-mountain)',  label: 'Hauteur',         icon: '▲'  },
+    urban:     { fill: 'var(--terrain-urban)',     label: 'Ruine',           icon: '▢'  },
+    objective: { fill: 'var(--terrain-objective)', label: 'Objectif',        icon: '✶'  },
+  };
+
+  // Hand-placed terrain map for an interesting tactical layout.
+  // Each row is left→right, 13 cols wide.
+  const MAP = [
+    'oooofffooomoo',
+    'oofffoommmmoo',
+    'oofoooooommoo',
+    'ooouoXoooowoo',
+    'oouuuoooowwwo',
+    'oouooooowwooo',
+    'ooooXooofooo',
+    'ooofoofffoooo',
+    'oooofffooommo',
+  ];
+
+  const CHAR_TO_TYPE = {
+    o: 'open', f: 'forest', w: 'water',
+    m: 'mountain', u: 'urban', X: 'objective',
+  };
+
+  // ---- Units ------------------------------------------------------------
+  // Two squads facing off. Some units have advanced from their deploy line.
+  // `from` = origin hex (deploy position) → triggers a movement trail.
+  const UNITS = {
+    p2: {
+      label: 'PLAYER 2 // RED CELL',
+      color: '#ff5a4a',
+      roster: [
+        { col: 1,  row: 1, code: 'L', name: 'Leader'  },
+        { col: 3,  row: 1, code: 'S', name: 'Sniper'  },
+        { col: 5,  row: 3, code: 'F', name: 'Fighter', from: [5, 1] },  // contests obj
+        { col: 7,  row: 2, code: 'G', name: 'Gunner',  from: [7, 1] },
+        { col: 9,  row: 3, code: 'F', name: 'Fighter', from: [9, 1] },
+        { col: 11, row: 1, code: 'T', name: 'Trooper' },
+      ],
+    },
+    p1: {
+      label: 'PLAYER 1 // BLUE CELL',
+      color: '#58a6ff',
+      roster: [
+        { col: 1,  row: 7, code: 'T', name: 'Trooper' },
+        { col: 3,  row: 6, code: 'G', name: 'Gunner',  from: [3, 7] },
+        { col: 4,  row: 6, code: 'F', name: 'Fighter', from: [5, 7] },  // grabs obj
+        { col: 7,  row: 6, code: 'M', name: 'Medic',   from: [7, 7] },
+        { col: 9,  row: 7, code: 'S', name: 'Sniper'  },
+        { col: 11, row: 7, code: 'L', name: 'Leader'  },
+      ],
+    },
+  };
+
+  // Flat-top hex polygon points for a center at (cx, cy)
+  function hexPoints(cx, cy, s) {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (60 * i);
+      pts.push([cx + s * Math.cos(angle), cy + s * Math.sin(angle)]);
+    }
+    return pts.map(p => p.map(v => v.toFixed(2)).join(',')).join(' ');
+  }
+
+  // ---- Render -----------------------------------------------------------
+  const svg = document.getElementById('hexmap');
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  svg.setAttribute('width', svgW);
+  svg.setAttribute('height', svgH);
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const hoverInfo = document.getElementById('hover-info');
+
+  for (let col = 0; col < COLS; col++) {
+    for (let row = 0; row < ROWS; row++) {
+      const cx = PADDING + SIZE + col * HSPACE;
+      const cy = PADDING + H / 2 + row * VSPACE + (col % 2 === 1 ? VSPACE / 2 : 0);
+
+      const ch = (MAP[row] && MAP[row][col]) || 'o';
+      const type = CHAR_TO_TYPE[ch] || 'open';
+      const terrain = TERRAIN[type];
+
+      const g = document.createElementNS(SVG_NS, 'g');
+
+      const poly = document.createElementNS(SVG_NS, 'polygon');
+      poly.setAttribute('points', hexPoints(cx, cy, SIZE - 1.5));
+      poly.setAttribute('fill', terrain.fill);
+      poly.setAttribute('class', 'hex');
+      poly.dataset.coord = `${col.toString().padStart(2,'0')}·${row.toString().padStart(2,'0')}`;
+      poly.dataset.type = type;
+
+      poly.addEventListener('mouseenter', e => {
+        hoverInfo.textContent = `${poly.dataset.coord} · ${terrain.label}`;
+      });
+
+      g.appendChild(poly);
+
+      // Terrain glyph
+      if (terrain.icon !== '·') {
+        const icon = document.createElementNS(SVG_NS, 'text');
+        icon.setAttribute('x', cx);
+        icon.setAttribute('y', cy - 2);
+        icon.setAttribute('class', 'terrain-icon');
+        icon.setAttribute('fill', type === 'objective' ? 'var(--accent)' : 'rgba(201,209,217,0.45)');
+        icon.textContent = terrain.icon;
+        g.appendChild(icon);
+      }
+
+      // Coordinate label
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', cx);
+      label.setAttribute('y', cy + SIZE - 10);
+      label.setAttribute('class', 'hex-coord');
+      label.textContent = `${col.toString(16).toUpperCase()}${row.toString(16).toUpperCase()}`;
+      g.appendChild(label);
+
+      svg.appendChild(g);
+    }
+  }
+
+  // ---- Units ------------------------------------------------------------
+  function hexCenter(col, row) {
+    const cx = PADDING + SIZE + col * HSPACE;
+    const cy = PADDING + H / 2 + row * VSPACE + (col % 2 === 1 ? VSPACE / 2 : 0);
+    return { cx, cy };
+  }
+
+  // Pass A — Influence zones (diagonal stripe pattern between formation line
+  //           and the player's deploy edge of the map).
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  Object.entries(UNITS).forEach(([key, squad]) => {
+    const pattern = document.createElementNS(SVG_NS, 'pattern');
+    pattern.setAttribute('id', `zone-${key}`);
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('width', '12');
+    pattern.setAttribute('height', '12');
+    pattern.setAttribute('patternTransform', 'rotate(45)');
+
+    const bg = document.createElementNS(SVG_NS, 'rect');
+    bg.setAttribute('width', '12');
+    bg.setAttribute('height', '12');
+    bg.setAttribute('fill', squad.color);
+    bg.setAttribute('opacity', '0.05');
+    pattern.appendChild(bg);
+
+    const stripe = document.createElementNS(SVG_NS, 'line');
+    stripe.setAttribute('x1', '0');
+    stripe.setAttribute('y1', '0');
+    stripe.setAttribute('x2', '0');
+    stripe.setAttribute('y2', '12');
+    stripe.setAttribute('stroke', squad.color);
+    stripe.setAttribute('stroke-width', '1.5');
+    stripe.setAttribute('opacity', '0.35');
+    pattern.appendChild(stripe);
+
+    defs.appendChild(pattern);
+  });
+  svg.insertBefore(defs, svg.firstChild);
+
+  Object.entries(UNITS).forEach(([key, squad]) => {
+    const sorted = [...squad.roster].sort((a, b) => a.col - b.col);
+    const unitPts = sorted.map(u => hexCenter(u.col, u.row));
+
+    // Decide which map edge is this squad's deploy edge by checking
+    // whether the squad sits in the top or bottom half of the board.
+    const avgY = unitPts.reduce((s, p) => s + p.cy, 0) / unitPts.length;
+    const isTopSquad = avgY < svgH / 2;
+    const edgeY = isTopSquad ? 0 : svgH;
+
+    // Build the closed polygon: deploy edge corners + formation line.
+    const pts = [];
+    pts.push(`0,${edgeY}`);
+    pts.push(`0,${unitPts[0].cy.toFixed(2)}`);
+    unitPts.forEach(p => pts.push(`${p.cx.toFixed(2)},${p.cy.toFixed(2)}`));
+    pts.push(`${svgW},${unitPts[unitPts.length - 1].cy.toFixed(2)}`);
+    pts.push(`${svgW},${edgeY}`);
+
+    const zone = document.createElementNS(SVG_NS, 'polygon');
+    zone.setAttribute('points', pts.join(' '));
+    zone.setAttribute('fill', `url(#zone-${key})`);
+    zone.setAttribute('class', 'influence-zone');
+    svg.appendChild(zone);
+  });
+
+  // Pass 0 — squad formation line (under everything else)
+  Object.values(UNITS).forEach(squad => {
+    const sorted = [...squad.roster].sort((a, b) => a.col - b.col);
+    const points = sorted
+      .map(u => {
+        const { cx, cy } = hexCenter(u.col, u.row);
+        return `${cx.toFixed(2)},${cy.toFixed(2)}`;
+      })
+      .join(' ');
+
+    const line = document.createElementNS(SVG_NS, 'polyline');
+    line.setAttribute('points', points);
+    line.setAttribute('stroke', squad.color);
+    line.setAttribute('stroke-width', '1.8');
+    line.setAttribute('opacity', '0.55');
+    line.setAttribute('class', 'squad-line');
+    line.style.color = squad.color; // for the drop-shadow filter
+    svg.appendChild(line);
+  });
+
+  // Pass 1 — movement trails (under units)
+  Object.values(UNITS).forEach(squad => {
+    squad.roster.forEach(unit => {
+      if (!unit.from) return;
+      const [fc, fr] = unit.from;
+      const from = hexCenter(fc, fr);
+      const to = hexCenter(unit.col, unit.row);
+
+      // Dashed flowing trail
+      const trail = document.createElementNS(SVG_NS, 'line');
+      trail.setAttribute('x1', from.cx);
+      trail.setAttribute('y1', from.cy);
+      trail.setAttribute('x2', to.cx);
+      trail.setAttribute('y2', to.cy);
+      trail.setAttribute('stroke', squad.color);
+      trail.setAttribute('stroke-width', '2.5');
+      trail.setAttribute('opacity', '0.7');
+      trail.setAttribute('class', 'movement-trail');
+      svg.appendChild(trail);
+
+      // Ghost ring at origin
+      const ghost = document.createElementNS(SVG_NS, 'circle');
+      ghost.setAttribute('cx', from.cx);
+      ghost.setAttribute('cy', from.cy);
+      ghost.setAttribute('r', SIZE * 0.35);
+      ghost.setAttribute('stroke', squad.color);
+      ghost.setAttribute('stroke-width', '1.2');
+      ghost.setAttribute('class', 'ghost-marker');
+      svg.appendChild(ghost);
+    });
+  });
+
+  // Pass 2 — units at their current position
+  Object.values(UNITS).forEach(squad => {
+    squad.roster.forEach(unit => {
+      const { cx, cy } = hexCenter(unit.col, unit.row);
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.style.color = squad.color;
+
+      // outer ring — solid filled with player color
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('cx', cx);
+      ring.setAttribute('cy', cy);
+      ring.setAttribute('r', SIZE * 0.65);
+      ring.setAttribute('fill', squad.color);
+      ring.setAttribute('stroke', '#ffffff');
+      ring.setAttribute('stroke-width', '1.5');
+      ring.setAttribute('class', 'unit-ring');
+      g.appendChild(ring);
+
+      // unit code letter (white, bold)
+      const text = document.createElementNS(SVG_NS, 'text');
+      text.setAttribute('x', cx);
+      text.setAttribute('y', cy + 1);
+      text.setAttribute('class', 'unit-code');
+      text.textContent = unit.code;
+      g.appendChild(text);
+
+      // hover handler — show unit name in footer
+      const hitbox = document.createElementNS(SVG_NS, 'circle');
+      hitbox.setAttribute('cx', cx);
+      hitbox.setAttribute('cy', cy);
+      hitbox.setAttribute('r', SIZE * 0.65);
+      hitbox.setAttribute('fill', 'transparent');
+      hitbox.style.cursor = 'pointer';
+      hitbox.addEventListener('mouseenter', () => {
+        const movedTag = unit.from ? ' · ADVANCED' : '';
+        hoverInfo.textContent = `${squad.label.split('//')[1].trim()} · ${unit.name} [${unit.code}]${movedTag}`;
+      });
+      g.appendChild(hitbox);
+
+      svg.appendChild(g);
+    });
+  });
+  const legend = document.getElementById('legend');
+  Object.entries(TERRAIN).forEach(([key, t]) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <span class="legend-swatch" style="background:${t.fill}"></span>
+      <span>${t.label}</span>
+    `;
+    legend.appendChild(item);
+  });
+
+  // ---- Squad roster legend ---------------------------------------------
+  const rosterPanel = document.createElement('div');
+  rosterPanel.style.cssText = `
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    border-top: 1px dashed var(--line);
+    padding-top: 18px;
+  `;
+
+  Object.values(UNITS).forEach(squad => {
+    const block = document.createElement('div');
+    const codes = [...new Map(squad.roster.map(u => [u.code, u.name])).entries()];
+    block.innerHTML = `
+      <div style="font-size:11px; letter-spacing:0.25em; color:${squad.color}; margin-bottom:8px;">
+        ${squad.label}
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px 14px; font-size:12px; color:var(--text-dim);">
+        ${codes.map(([c, n]) => `
+          <span><span style="color:${squad.color}; font-weight:600;">[${c}]</span> ${n}</span>
+        `).join('')}
+      </div>
+    `;
+    rosterPanel.appendChild(block);
+  });
+  legend.parentElement.insertBefore(rosterPanel, legend.nextSibling);
+</script>
+</body>
+</html>
