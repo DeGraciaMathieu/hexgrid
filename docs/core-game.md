@@ -87,7 +87,13 @@ Une unité capturée :
 
 ### Tracé de la ligne territoriale
 
-Ta ligne est tracée en suivant tes unités les plus avancées par colonne (enveloppe supérieure côté adversaire). Une unité est considérée "sur la ligne" si elle est plus avancée que ses voisines de gauche et de droite. Sinon elle est "intérieure" et ne contribue pas au tracé.  
+Ta ligne est le chemin reliant tes unités de gauche à droite qui **maximise le territoire englobé** entre ce tracé et ta zone de départ, sous la contrainte qu'**aucune unité ennemie ne se trouve à l'intérieur** du polygone formé.
+
+- **Unité de frontière** : unité de ton camp qui appartient au tracé de la ligne.
+- **Unité intérieure** : unité de ton camp située dans ton territoire mais qui ne contribue pas au tracé. Elle reste pleinement active (combat, blocage de ligne de vue, mouvement).
+
+Si une unité ennemie se retrouve à l'intérieur du polygone optimal (brèche), le tracé est révisé pour contourner l'intrus en passant entre lui et ta zone de départ — la ligne "plonge" vers l'arrière pour l'exclure, promouvant au passage des unités intérieures en unités de frontière. Si aucun contour valide n'est possible faute d'unités intérieures suffisantes, la portion de territoire concernée est perdue.
+
 Les bunkers ne contribuent jamais au tracé de la ligne.
 
 ### Calcul des points de territoire
