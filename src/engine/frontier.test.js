@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeFrontierPoints } from './frontier.js'
+import { computeFrontierPoints, checkExtensions } from './frontier.js'
 
 const pt = (cx, cy) => ({ cx, cy })
 
@@ -121,6 +121,59 @@ describe('Ligne de frontière', () => {
 
       expect(estInterieure(sans_ennemi, unite_interieure)).toBe(true)
       expect(estSurLaFrontiere(avec_ennemi, unite_interieure)).toBe(true)
+    })
+  })
+
+  describe('Flanc ennemi hors du span allié', () => {
+    // Ces tests couvrent le cas où un ennemi se retrouve à gauche de toutes les unités alliées
+    // ou à droite — zone que le tracé ne peut pas couvrir. Le polygone de territoire ne doit
+    // pas s'étendre de ce côté-là.
+
+    it("un ennemi qui flanque à gauche, derrière la ligne, bloque l'extension gauche du territoire", () => {
+      // Joueur bas (p1) : unités sur un span central.
+      // Ennemi p2 glisse en col 0 (hors span) et se retrouve en retrait dans le territoire p1.
+      // Attendu : leftBlocked=true → le polygone ne s'étend plus jusqu'au bord gauche.
+      const ligne_p1 = [pt(100, 150), pt(300, 130), pt(500, 150)]
+      const flanqueur = pt(30, 300) // hors span gauche, cy > ligne → territoire p1
+
+      const frontierPts = computeFrontierPoints(ligne_p1, false, [flanqueur])
+      const { leftBlocked, rightBlocked } = checkExtensions(frontierPts, false, [flanqueur])
+
+      expect(leftBlocked).toBe(true)
+      expect(rightBlocked).toBe(false)
+    })
+
+    it("un ennemi hors span mais devant la ligne ne bloque pas l'extension (il n'est pas dans le territoire)", () => {
+      const ligne_p1 = [pt(100, 150), pt(300, 130), pt(500, 150)]
+      const ennemi_devant = pt(30, 50) // hors span gauche, mais cy < ligne → devant, hors territoire
+
+      const frontierPts = computeFrontierPoints(ligne_p1, false, [ennemi_devant])
+      const { leftBlocked } = checkExtensions(frontierPts, false, [ennemi_devant])
+
+      expect(leftBlocked).toBe(false)
+    })
+
+    it("un ennemi qui flanque à droite bloque l'extension droite du territoire", () => {
+      const ligne_p1 = [pt(100, 150), pt(300, 130), pt(500, 150)]
+      const flanqueur = pt(620, 300) // hors span droit, derrière la ligne
+
+      const frontierPts = computeFrontierPoints(ligne_p1, false, [flanqueur])
+      const { leftBlocked, rightBlocked } = checkExtensions(frontierPts, false, [flanqueur])
+
+      expect(leftBlocked).toBe(false)
+      expect(rightBlocked).toBe(true)
+    })
+
+    it("le joueur du haut est aussi protégé contre les flancs (isTop=true)", () => {
+      // Joueur haut (p2) : territoire au-dessus de la ligne (cy plus petit = devant).
+      // Ennemi qui flanque à gauche avec cy < frontierPts[0].cy → dans le territoire haut.
+      const ligne_p2 = [pt(100, 200), pt(300, 220), pt(500, 200)]
+      const flanqueur = pt(30, 80) // hors span gauche, cy < ligne → territoire p2
+
+      const frontierPts = computeFrontierPoints(ligne_p2, true, [flanqueur])
+      const { leftBlocked } = checkExtensions(frontierPts, true, [flanqueur])
+
+      expect(leftBlocked).toBe(true)
     })
   })
 })

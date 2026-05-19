@@ -59,3 +59,25 @@ export function computeFrontierPoints(points, isTop, enemyUnits = []) {
   }
   return path
 }
+
+// Détecte si des unités ennemies se trouvent dans les zones d'extension latérales du territoire :
+// à gauche du premier point de frontière ou à droite du dernier.
+// Le tracé ne peut pas les contourner (aucun allié dans ces zones) — le polygone de territoire
+// ne doit pas s'étendre de ce côté.
+//
+// Retourne { leftBlocked, rightBlocked }.
+export function checkExtensions(frontierPts, isTop, enemyUnits = []) {
+  if (frontierPts.length === 0) return { leftBlocked: false, rightBlocked: false }
+
+  const first = frontierPts[0]
+  const last  = frontierPts[frontierPts.length - 1]
+
+  const leftBlocked = enemyUnits.some(E =>
+    E.cx < first.cx && (isTop ? E.cy < first.cy : E.cy > first.cy)
+  )
+  const rightBlocked = enemyUnits.some(E =>
+    E.cx > last.cx && (isTop ? E.cy < last.cy : E.cy > last.cy)
+  )
+
+  return { leftBlocked, rightBlocked }
+}
