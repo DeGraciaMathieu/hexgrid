@@ -42,34 +42,14 @@ Les unités peuvent traverser les villes et les bunkers.
 
 ---
 
-## 4. Combat (capture par flanquement à distance)
+## 4. Combat (capture par encerclement)
 
-Une unité est capturée si, sur un même axe hexagonal, les conditions suivantes sont réunies simultanément :
-
-- Deux unités ennemies sont à distance ≤ 2 hex de la cible.
-- Ces deux ennemis sont sur des côtés opposés de la cible (sandwich linéaire).
-- La ligne de vue entre chaque tireur et la cible est dégagée.
-
-**Ce qui bloque la ligne de vue :**
-
-- Les unités alliées et ennemies.
-
-**Ce qui ne bloque pas la ligne de vue :**
-
-- Les villes (transparentes).
-- Les bunkers (transparents).
-- Les hexagones vides.
-
-**Mâchoires alternatives au sandwich :**
-
-- Les bords du plateau comptent comme mâchoire.
-- Les bunkers contrôlés par le joueur attaquant comptent comme mâchoire (voir section bunkers).
+Une unité est capturée si, après un mouvement, **au moins 2 unités ennemies se trouvent à distance ≤ 2 hex d'elle**.
 
 **Règles de résolution :**
 
-- Toute capture qui devient valide après un mouvement se déclenche, y compris si l'ouverture d'une ligne de vue par déplacement d'un allié la crée.
-- Une unité qui se déplace dans une position où elle se retrouve en sandwich existant meurt aussi.
-- Pas de cascade : on photographie l'état après le mouvement, toutes les captures simultanées se résolvent en bloc, et la phase de combat se termine.
+- On photographie l'état après le mouvement. Toutes les captures valides se résolvent simultanément, y compris si l'unité déplacée est elle-même en position d'être capturée.
+- Pas de cascade : la phase de combat se termine après cette unique résolution.
 
 ---
 
@@ -153,9 +133,9 @@ Si aucun joueur ne remplit cette condition, le bunker reste inerte.
 
 ### Effets d'un bunker actif
 
-Le bunker agit comme une unité de son contrôleur pour les calculs de sandwich :
+Le bunker agit comme une unité de son contrôleur pour les calculs de capture :
 
-- Il peut servir de mâchoire dans un sandwich (à distance ≤ 2 avec ligne de vue dégagée).
+- Il compte comme l'une des 2 unités requises pour capturer un ennemi à distance ≤ 2.
 - Il ne se déplace pas, ne meurt pas, ne respawn pas.
 
 Le bunker **ne compte pas** pour :
@@ -178,6 +158,6 @@ Le joueur avec le score le plus élevé gagne.
 ## Philosophie de design
 
 - **Aucun hasard pendant la partie** : tout est positionnel et déterministe.
-- **Combat à portée 2 avec ligne de vue** : les unités alliées servent de boucliers.
+- **Combat par encerclement à portée 2** : 2 unités suffisent pour capturer un ennemi à portée.
 - **Trade-offs omniprésents** entre étendre sa ligne (scorer), garder de la profondeur (défendre, intercepter les raids), et occuper des points clés (villes, bunkers).
 - **Crescendo de fin de partie** : les villes étant scorées uniquement au tour 20, des renversements dramatiques sont possibles jusqu'au dernier moment.

@@ -84,6 +84,28 @@ describe('Ligne de frontière', () => {
       expect(frontier).toEqual([flanc_gauche, flanc_droit])
     })
 
+    it("deux ennemis infiltrés en zones différentes sont tous deux exclus du territoire", () => {
+      // Les deux ennemis sont assez profonds pour qu'aucun chemin ne puisse en exclure
+      // un seul : le seul chemin valide passe par les deux unités intérieures.
+      const flanc_gauche   = pt(0,   100)
+      const unite_milieu_g = pt(75,  150)
+      const unite_milieu_d = pt(125, 150)
+      const flanc_droit    = pt(200, 100)
+      const ennemi_gauche  = pt(50,  130) // profond côté gauche
+      const ennemi_droit   = pt(150, 130) // profond côté droit
+
+      const frontier = computeFrontierPoints(
+        [flanc_gauche, unite_milieu_g, unite_milieu_d, flanc_droit],
+        false,
+        [ennemi_gauche, ennemi_droit],
+      )
+
+      // Le seul chemin valide est FG → UMG → UMD → FD :
+      // les deux unités intérieures sont promues sur la frontière.
+      expect(estSurLaFrontiere(frontier, unite_milieu_g)).toBe(true)
+      expect(estSurLaFrontiere(frontier, unite_milieu_d)).toBe(true)
+    })
+
     it("le joueur du haut (isTop=true) voit aussi sa frontière se déformer lors d'une brèche", () => {
       const flanc_gauche     = pt(0,   100)
       const unite_interieure = pt(100,  50) // en retrait pour le joueur du haut
