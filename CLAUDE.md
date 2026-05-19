@@ -7,3 +7,6 @@
 
 ## Règles du jeu
 Les règles complètes sont dans `docs/core-game.md`. Les lire avant d'implémenter toute logique de jeu.
+
+## Conventions visuelles
+Les conventions de rendu sont dans `docs/visual-conventions.md`. Les lire avant d'implémenter ou modifier quoi que ce soit de visuel (couleurs, SVG, typographie, animations).
