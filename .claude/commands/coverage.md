@@ -1,12 +1,12 @@
-Vérifie la couverture de tests et crée les tests manquants.
+Vérifie la couverture de tests et propose les tests manquants.
 
 Les tests doivent être de **haut niveau** (macro) : ils vérifient le comportement fonctionnel du jeu, pas les détails d'implémentation. On teste "ce que fait le système" et non "comment il le fait".
 
 1. Lis les fichiers sources dans `src/` pour identifier les fonctionnalités du jeu.
-2. Lis les tests existants dans `tests/` pour identifier ce qui est déjà couvert.
+2. Lis les tests existants (fichiers `*.test.js` co-localisés dans `src/`) pour identifier ce qui est déjà couvert.
 3. Compare les fonctionnalités aux tests existants et identifie les manques.
 4. Liste les tests proposés à l'utilisateur et attends sa validation avant de les écrire.
-5. Pour chaque test validé, crée-le dans le fichier approprié de `tests/`.
+5. Pour chaque test validé, crée-le dans le fichier `*.test.js` co-localisé à côté du fichier source testé (ex: `src/engine/movement.test.js` pour `src/engine/movement.js`).
 5. Les tests doivent :
    - Vérifier des comportements macro (ex: "un tir hors portée ne fait pas de dégâts", "une unité morte ne peut plus agir")
    - Ne PAS tester les détails internes (ex: valeurs intermédiaires, structure des objets retournés)
