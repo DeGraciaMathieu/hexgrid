@@ -15,14 +15,17 @@ export function hexDistance(col1, row1, col2, row2) {
 }
 
 // Retourne tous les hexes atteignables depuis (col, row) dans un rayon `range`,
-// filtrés par les limites du plateau. Exclut le hex de départ.
+// filtrés par les limites du plateau. Exclut le hex de départ et les hexes occupés.
+// occupiedHexes : tableau de {col, row} des cases non accessibles (unités alliées et ennemies).
 // TODO: la portée devra tenir compte du territoire (règle §3) quand celui-ci
 // sera implémenté — vitesse 1 en territoire propre, 3 hors territoire.
-export function getReachableHexes(col, row, range, cols, rows) {
+export function getReachableHexes(col, row, range, cols, rows, occupiedHexes = []) {
+  const occupied = new Set(occupiedHexes.map(h => `${h.col},${h.row}`))
   const result = []
   for (let c = 0; c < cols; c++) {
     for (let r = 0; r < rows; r++) {
       if (c === col && r === row) continue
+      if (occupied.has(`${c},${r}`)) continue
       const d = hexDistance(col, row, c, r)
       if (d <= range) result.push({ col: c, row: r })
     }
