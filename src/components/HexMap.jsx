@@ -52,7 +52,11 @@ function InfluenceZones({ units }) {
         const isTop = avgY < SVG_H / 2
         const edgeY = isTop ? 0 : SVG_H
 
-        const frontierPts = computeFrontierPoints(unitPts, isTop)
+        const enemyPts = Object.entries(units)
+          .filter(([k]) => k !== key)
+          .flatMap(([, s]) => s.roster.map(u => hexCenter(u.col, u.row)))
+
+        const frontierPts = computeFrontierPoints(unitPts, isTop, enemyPts)
 
         const pts = [
           `0,${edgeY}`,
@@ -76,12 +80,15 @@ function InfluenceZones({ units }) {
 }
 
 function SquadLines({ units }) {
-  return Object.values(units).map((squad, i) => {
+  return Object.entries(units).map(([key, squad], i) => {
     const sorted = [...squad.roster].sort((a, b) => a.col - b.col)
     const unitPts = sorted.map(u => hexCenter(u.col, u.row))
     const avgY = unitPts.reduce((s, p) => s + p.cy, 0) / unitPts.length
     const isTop = avgY < SVG_H / 2
-    const frontierPts = computeFrontierPoints(unitPts, isTop)
+    const enemyPts = Object.entries(units)
+      .filter(([k]) => k !== key)
+      .flatMap(([, s]) => s.roster.map(u => hexCenter(u.col, u.row)))
+    const frontierPts = computeFrontierPoints(unitPts, isTop, enemyPts)
     const pts = frontierPts.map(p => `${p.cx.toFixed(2)},${p.cy.toFixed(2)}`).join(' ')
 
     return (
