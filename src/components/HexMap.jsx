@@ -200,9 +200,10 @@ function HexTile({ col, row, onHover }) {
           x={cx} y={cy - 2}
           textAnchor="middle"
           dominantBaseline="middle"
+          fill={type === 'objective' ? 'var(--accent)' : 'var(--text)'}
+          opacity={type === 'objective' ? undefined : 0.45}
           style={{
             fontSize: 14,
-            fill: type === 'objective' ? 'var(--accent)' : 'rgba(201,209,217,0.45)',
             pointerEvents: 'none',
             userSelect: 'none',
           }}
@@ -309,7 +310,7 @@ function Legend() {
           const codes = [...new Map(squad.roster.map(u => [u.code, u.name])).entries()]
           return (
             <div key={squad.label}>
-              <div style={{ fontSize: 11, letterSpacing: '0.25em', color: squad.color, marginBottom: 8 }}>
+              <div style={{ fontSize: 11, letterSpacing: '0.3em', color: squad.color, marginBottom: 8 }}>
                 {squad.label}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', fontSize: 12, color: 'var(--text-dim)' }}>
