@@ -3,65 +3,102 @@ import { computeFrontierPoints } from './frontier.js'
 
 const pt = (cx, cy) => ({ cx, cy })
 
-describe('computeFrontierPoints', () => {
-  describe('joueur du bas (isTop=false, avance vers le haut = cy min)', () => {
-    it('retourne tous les points si le milieu est plus avance', () => {
-      const points = [pt(0, 100), pt(100, 50), pt(200, 100)]
-      expect(computeFrontierPoints(points, false)).toEqual(points)
+// Helpers lisibles
+const estSurLaFrontiere = (frontier, unit) => frontier.includes(unit)
+const estInterieure = (frontier, unit) => !frontier.includes(unit)
+
+describe('Ligne de frontière', () => {
+  describe('Sans unité ennemie — tracé optimal', () => {
+    it('les unités en retrait sont des unités intérieures et ne contribuent pas au tracé', () => {
+      const flanc_gauche  = pt(0,   100)
+      const unite_interieure = pt(100, 200) // en arrière par rapport au front
+      const flanc_droit   = pt(200, 100)
+
+      const frontier = computeFrontierPoints([flanc_gauche, unite_interieure, flanc_droit], false)
+
+      expect(estSurLaFrontiere(frontier, flanc_gauche)).toBe(true)
+      expect(estSurLaFrontiere(frontier, flanc_droit)).toBe(true)
+      expect(estInterieure(frontier, unite_interieure)).toBe(true)
     })
 
-    it('retire une unite interieure en retrait (cy trop eleve)', () => {
-      const points = [pt(0, 100), pt(100, 150), pt(200, 100)]
-      expect(computeFrontierPoints(points, false)).toEqual([pt(0, 100), pt(200, 100)])
+    it('une unité plus avancée que la ligne directe est incluse dans la frontière', () => {
+      const flanc_gauche  = pt(0,   100)
+      const pointe        = pt(100,  50) // saillante vers l'ennemi
+      const flanc_droit   = pt(200, 100)
+
+      const frontier = computeFrontierPoints([flanc_gauche, pointe, flanc_droit], false)
+
+      expect(estSurLaFrontiere(frontier, pointe)).toBe(true)
     })
 
-    it('conserve une seule unite', () => {
-      expect(computeFrontierPoints([pt(50, 80)], false)).toEqual([pt(50, 80)])
-    })
+    it('le joueur du haut (isTop=true) obéit à la même logique en sens inverse', () => {
+      const flanc_gauche  = pt(0,   100)
+      const unite_interieure = pt(100,  50) // en retrait pour le joueur du haut
+      const flanc_droit   = pt(200, 100)
 
-    it('conserve deux unites sans point intermediaire', () => {
-      const points = [pt(0, 100), pt(200, 80)]
-      expect(computeFrontierPoints(points, false)).toEqual(points)
-    })
+      const frontier = computeFrontierPoints([flanc_gauche, unite_interieure, flanc_droit], true)
 
-    it('retire plusieurs unites interieures successives', () => {
-      const points = [pt(0, 100), pt(50, 130), pt(100, 140), pt(150, 120), pt(200, 100)]
-      expect(computeFrontierPoints(points, false)).toEqual([pt(0, 100), pt(200, 100)])
-    })
-
-    it('conserve une unite saillante parmi les interieures', () => {
-      const points = [pt(0, 100), pt(50, 120), pt(100, 60), pt(150, 120), pt(200, 100)]
-      expect(computeFrontierPoints(points, false)).toEqual([pt(0, 100), pt(100, 60), pt(200, 100)])
-    })
-  })
-
-  describe('joueur du haut (isTop=true, avance vers le bas = cy max)', () => {
-    it('retourne tous les points si le milieu est plus avance', () => {
-      const points = [pt(0, 100), pt(100, 150), pt(200, 100)]
-      expect(computeFrontierPoints(points, true)).toEqual(points)
-    })
-
-    it('retire une unite interieure en retrait (cy trop faible)', () => {
-      const points = [pt(0, 100), pt(100, 50), pt(200, 100)]
-      expect(computeFrontierPoints(points, true)).toEqual([pt(0, 100), pt(200, 100)])
-    })
-
-    it('retire plusieurs unites interieures successives', () => {
-      const points = [pt(0, 100), pt(50, 70), pt(100, 60), pt(150, 80), pt(200, 100)]
-      expect(computeFrontierPoints(points, true)).toEqual([pt(0, 100), pt(200, 100)])
-    })
-
-    it('conserve une unite saillante parmi les interieures', () => {
-      const points = [pt(0, 100), pt(50, 80), pt(100, 140), pt(150, 80), pt(200, 100)]
-      expect(computeFrontierPoints(points, true)).toEqual([pt(0, 100), pt(100, 140), pt(200, 100)])
+      expect(estInterieure(frontier, unite_interieure)).toBe(true)
     })
   })
 
-  describe('cas limites', () => {
-    it('points colineaires : les intermediaires sont retires', () => {
-      const points = [pt(0, 100), pt(100, 100), pt(200, 100)]
-      expect(computeFrontierPoints(points, false)).toEqual([pt(0, 100), pt(200, 100)])
-      expect(computeFrontierPoints(points, true)).toEqual([pt(0, 100), pt(200, 100)])
+  describe('Ennemi infiltré dans le territoire', () => {
+    it("une unité intérieure est promue sur la frontière pour exclure l'ennemi", () => {
+      const flanc_gauche     = pt(0,   100)
+      const unite_interieure = pt(100, 150) // normalement hors tracé
+      const flanc_droit      = pt(200, 100)
+      const ennemi_infiltre  = pt(50,  120) // derrière la ligne directe → territoire
+
+      const sans_ennemi = computeFrontierPoints(
+        [flanc_gauche, unite_interieure, flanc_droit], false
+      )
+      const avec_ennemi = computeFrontierPoints(
+        [flanc_gauche, unite_interieure, flanc_droit], false, [ennemi_infiltre]
+      )
+
+      expect(estInterieure(sans_ennemi, unite_interieure)).toBe(true) // intérieure sans brèche
+      expect(estSurLaFrontiere(avec_ennemi, unite_interieure)).toBe(true) // promue lors de la brèche
+    })
+
+    it("un ennemi hors territoire (devant la ligne) ne modifie pas le tracé", () => {
+      const flanc_gauche  = pt(0,   100)
+      const flanc_droit   = pt(200, 100)
+      const ennemi_devant = pt(100,  50) // plus avancé que notre ligne → hors territoire
+
+      const sans_ennemi = computeFrontierPoints([flanc_gauche, flanc_droit], false)
+      const avec_ennemi = computeFrontierPoints([flanc_gauche, flanc_droit], false, [ennemi_devant])
+
+      expect(avec_ennemi).toEqual(sans_ennemi)
+    })
+
+    it("la frontière se replie sur les extrémités si aucun contournement n'est possible", () => {
+      // Ennemi profondément infiltré, pas d'unité intérieure pour le contourner
+      const flanc_gauche      = pt(0,   100)
+      const flanc_droit       = pt(200, 100)
+      const ennemi_non_evitable = pt(100, 300)
+
+      const frontier = computeFrontierPoints(
+        [flanc_gauche, flanc_droit], false, [ennemi_non_evitable]
+      )
+
+      expect(frontier).toEqual([flanc_gauche, flanc_droit])
+    })
+
+    it("le joueur du haut (isTop=true) voit aussi sa frontière se déformer lors d'une brèche", () => {
+      const flanc_gauche     = pt(0,   100)
+      const unite_interieure = pt(100,  50) // en retrait pour le joueur du haut
+      const flanc_droit      = pt(200, 100)
+      const ennemi_infiltre  = pt(50,   90) // derrière la ligne directe → territoire haut
+
+      const sans_ennemi = computeFrontierPoints(
+        [flanc_gauche, unite_interieure, flanc_droit], true
+      )
+      const avec_ennemi = computeFrontierPoints(
+        [flanc_gauche, unite_interieure, flanc_droit], true, [ennemi_infiltre]
+      )
+
+      expect(estInterieure(sans_ennemi, unite_interieure)).toBe(true)
+      expect(estSurLaFrontiere(avec_ennemi, unite_interieure)).toBe(true)
     })
   })
 })

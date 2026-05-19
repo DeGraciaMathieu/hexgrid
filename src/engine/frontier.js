@@ -1,25 +1,61 @@
-// Produit vectoriel 2D pour trois points {cx, cy}.
-// Positif → tournant gauche (anti-horaire en coords écran où y descend → horaire en math).
-function cross(O, A, B) {
-  return (A.cx - O.cx) * (B.cy - O.cy) - (A.cy - O.cy) * (B.cx - O.cx)
+// Retourne false si l'arc A→B laisse une unité ennemie à l'intérieur du territoire.
+// "Intérieur" signifie côté zone de départ : E.cy > frontierCy (isTop=false) ou E.cy < frontierCy (isTop=true).
+function isSegmentValid(A, B, enemyUnits, isTop) {
+  for (const E of enemyUnits) {
+    if (E.cx <= A.cx || E.cx >= B.cx) continue
+    const t = (E.cx - A.cx) / (B.cx - A.cx)
+    const frontierCy = A.cy + t * (B.cy - A.cy)
+    if (isTop ? E.cy < frontierCy : E.cy > frontierCy) return false
+  }
+  return true
 }
 
-// Calcule les points de la ligne de frontière (enveloppe supérieure côté adversaire).
-// points  : tableau de {cx, cy} triés par cx croissant.
-// isTop   : true si le joueur part du haut (avance vers le bas, cy max).
-//           false si le joueur part du bas (avance vers le haut, cy min).
-// Retourne le sous-ensemble de points formant la ligne brisée frontière.
-export function computeFrontierPoints(points, isTop) {
-  const hull = []
-  for (const p of points) {
-    while (hull.length >= 2) {
-      const c = cross(hull[hull.length - 2], hull[hull.length - 1], p)
-      // isTop  → upper hull (max cy) : retire si tournant gauche ou colinéaire (c >= 0)
-      // !isTop → lower hull (min cy) : retire si tournant droite ou colinéaire (c <= 0)
-      if (isTop ? c >= 0 : c <= 0) hull.pop()
-      else break
+// Calcule les points de la ligne de frontière :
+// - sans ennemis : enveloppe convexe (hull) qui maximise le territoire
+// - avec ennemis : chemin DP qui maximise le territoire tout en excluant les unités ennemies
+//
+// points     : tableau de {cx, cy} triés par cx croissant.
+// isTop      : true si le joueur part du haut (avance vers le bas, cy max).
+//              false si le joueur part du bas (avance vers le haut, cy min).
+// enemyUnits : tableau de {cx, cy} des unités adverses.
+//
+// Retourne le sous-ensemble ordonné de points formant la ligne de frontière.
+export function computeFrontierPoints(points, isTop, enemyUnits = []) {
+  if (points.length <= 1) return [...points]
+
+  const units = [...points].sort((a, b) => a.cx - b.cx)
+  const n = units.length
+
+  // DP : score = somme des aires trapézoïdales sous le chemin.
+  // isTop=false → minimiser (cy bas = plus avancé = plus de territoire derrière)
+  // isTop=true  → maximiser (cy haut = plus avancé = plus de territoire derrière)
+  const INF = Infinity
+  const dp = units.map(() => ({ score: isTop ? -INF : INF, prev: -1, reachable: false }))
+  dp[0] = { score: 0, prev: -1, reachable: true }
+
+  for (let j = 1; j < n; j++) {
+    for (let i = 0; i < j; i++) {
+      if (!dp[i].reachable) continue
+      if (!isSegmentValid(units[i], units[j], enemyUnits, isTop)) continue
+
+      const segArea = (units[j].cx - units[i].cx) * (units[i].cy + units[j].cy) / 2
+      const newScore = dp[i].score + segArea
+      const isBetter = isTop ? newScore > dp[j].score : newScore < dp[j].score
+
+      if (isBetter) {
+        dp[j] = { score: newScore, prev: i, reachable: true }
+      }
     }
-    hull.push(p)
   }
-  return hull
+
+  // Pas de chemin valide → territoire perdu, on retourne les extrémités
+  if (!dp[n - 1].reachable) return [units[0], units[n - 1]]
+
+  const path = []
+  let cur = n - 1
+  while (cur !== -1) {
+    path.unshift(units[cur])
+    cur = dp[cur].prev
+  }
+  return path
 }
