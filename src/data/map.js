@@ -32,11 +32,11 @@ const BASE_MAP = RAW_MAP.map(row =>
   row.split('').map(ch => CHAR_TO_TYPE[ch] || 'open')
 )
 
-const MOUNTAIN_SEEDS = 4
+const MOUNTAIN_SEEDS = 3
 const MOUNTAIN_SPREAD_CHANCE = 0.4
 const MOUNTAIN_MAX_SIZE = 2
 
-const WATER_SEEDS = 2
+const WATER_SEEDS = 1
 const WATER_SPREAD_CHANCE = 0.4
 const WATER_MAX_SIZE = 2
 
@@ -127,11 +127,11 @@ export const SQUADS = {
     color: '#ff5a4a',
     startRow: 0,
     roster: [
-      { col: 1,  row: 0, code: 'L', name: 'Leader'  },
-      { col: 3,  row: 0, code: 'S', name: 'Sniper'  },
-      { col: 5,  row: 0, code: 'F', name: 'Fighter' },
-      { col: 7,  row: 0, code: 'G', name: 'Gunner'  },
-      { col: 11, row: 0, code: 'T', name: 'Trooper' },
+      { col: 2,  row: 0, code: 'L', name: 'Leader'  },
+      { col: 4,  row: 0, code: 'S', name: 'Sniper'  },
+      { col: 6,  row: 0, code: 'F', name: 'Fighter' },
+      { col: 8,  row: 0, code: 'G', name: 'Gunner'  },
+      { col: 10, row: 0, code: 'T', name: 'Trooper' },
     ],
   },
   p1: {
