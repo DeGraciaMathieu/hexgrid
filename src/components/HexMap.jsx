@@ -498,32 +498,6 @@ function Legend({ units }) {
         ))}
       </div>
 
-      <div style={{
-        marginTop: 22,
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: 16,
-        borderTop: '1px dashed var(--line)',
-        paddingTop: 18,
-      }}>
-        {Object.values(units).map(squad => {
-          const codes = [...new Map(squad.roster.map(u => [u.code, u.name])).entries()]
-          return (
-            <div key={squad.label}>
-              <div style={{ fontSize: 11, letterSpacing: '0.3em', color: squad.color, marginBottom: 8 }}>
-                {squad.label}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', fontSize: 12, color: 'var(--text-dim)' }}>
-                {codes.map(([code, name]) => (
-                  <span key={code}>
-                    <span style={{ color: squad.color, fontWeight: 600 }}>[{code}]</span> {name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
     </div>
   )
 }

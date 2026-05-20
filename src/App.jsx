@@ -7,6 +7,71 @@ import { countTerritoryHexes } from './engine/territory.js'
 
 const MOVE_RANGE = 2 // TODO: dépend du territoire (§3 core-game.md)
 
+const CHART_W = 320
+const CHART_H = 80
+const MAX_TURNS = 20
+
+function ScoreChart({ scoreHistory, units }) {
+  const hasData = scoreHistory.p1.length > 0 || scoreHistory.p2.length > 0
+  if (!hasData) return null
+
+  const maxScore = Math.max(
+    1,
+    ...scoreHistory.p1,
+    ...scoreHistory.p2,
+  )
+
+  function toPoints(history, playerKey) {
+    return history.map((score, i) => {
+      // chaque entrée correspond à un tour du joueur (p1 = tours impairs, p2 = tours pairs)
+      const turnIndex = playerKey === 'p1'
+        ? i * 2
+        : i * 2 + 1
+      const x = (turnIndex / (MAX_TURNS - 1)) * CHART_W
+      const y = CHART_H - (score / maxScore) * CHART_H
+      return `${x},${y}`
+    }).join(' ')
+  }
+
+  return (
+    <div style={{ marginBottom: 16, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 4, padding: '12px 16px' }}>
+      <div style={{ fontSize: 11, letterSpacing: '0.2em', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 8 }}>
+        territoire · historique
+      </div>
+      <svg width="100%" viewBox={`0 0 ${CHART_W} ${CHART_H}`} style={{ display: 'block' }}>
+        <line x1="0" y1={CHART_H} x2={CHART_W} y2={CHART_H} stroke="var(--line)" strokeWidth="1" />
+        {Object.entries(scoreHistory).map(([key, history]) => {
+          const pts = toPoints(history, key)
+          if (!pts) return null
+          return (
+            <polyline
+              key={key}
+              points={pts}
+              fill="none"
+              stroke={units[key].color}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.85"
+            />
+          )
+        })}
+      </svg>
+      <div style={{ display: 'flex', gap: 20, marginTop: 8, fontSize: 11, letterSpacing: '0.15em' }}>
+        {Object.entries(units).map(([key, squad]) => {
+          const last = scoreHistory[key].at(-1) ?? 0
+          return (
+            <span key={key}>
+              <span style={{ color: squad.color }}>{squad.label.split('//')[1].trim()}</span>
+              <span style={{ color: 'var(--text-dim)' }}> {last} pts</span>
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function initUnits() {
   return Object.fromEntries(
     Object.entries(SQUADS).map(([key, squad]) => [
@@ -24,6 +89,7 @@ export default function App() {
   const [respawnQueue, setRespawnQueue] = useState([])   // [{ squadKey, unit }]
   const [turn, setTurn] = useState(1)
   const [activePlayer, setActivePlayer] = useState('p1')
+  const [scoreHistory, setScoreHistory] = useState({ p1: [], p2: [] })
 
   const occupiedHexes = selectedUnit
     ? Object.entries(units).flatMap(([key, squad]) =>
@@ -89,33 +155,38 @@ export default function App() {
       unit: { ...units[squadKey].roster[unitIndex] },
     }))
 
-    setUnits(prev => {
-      const next = { ...prev }
+    const nextUnits = { ...units }
 
-      const roster = next[selectedUnit.squadKey].roster.map((u, i) =>
-        i === selectedUnit.unitIndex ? { ...u, col: targetHex.col, row: targetHex.row, from: undefined } : u
-      )
-      next[selectedUnit.squadKey] = { ...next[selectedUnit.squadKey], roster }
+    const roster = nextUnits[selectedUnit.squadKey].roster.map((u, i) =>
+      i === selectedUnit.unitIndex ? { ...u, col: targetHex.col, row: targetHex.row, from: undefined } : u
+    )
+    nextUnits[selectedUnit.squadKey] = { ...nextUnits[selectedUnit.squadKey], roster }
 
-      const capturedBySquad = {}
-      threatenedEnemies.forEach(({ squadKey, unitIndex }) => {
-        if (!capturedBySquad[squadKey]) capturedBySquad[squadKey] = new Set()
-        capturedBySquad[squadKey].add(unitIndex)
-      })
-      Object.entries(capturedBySquad).forEach(([squadKey, indices]) => {
-        next[squadKey] = {
-          ...next[squadKey],
-          roster: next[squadKey].roster.filter((_, i) => !indices.has(i)),
-        }
-      })
-
-      return next
+    const capturedBySquad = {}
+    threatenedEnemies.forEach(({ squadKey, unitIndex }) => {
+      if (!capturedBySquad[squadKey]) capturedBySquad[squadKey] = new Set()
+      capturedBySquad[squadKey].add(unitIndex)
+    })
+    Object.entries(capturedBySquad).forEach(([squadKey, indices]) => {
+      nextUnits[squadKey] = {
+        ...nextUnits[squadKey],
+        roster: nextUnits[squadKey].roster.filter((_, i) => !indices.has(i)),
+      }
     })
 
+    const territoryCounts = countTerritoryHexes(nextUnits)
+    const playerScore = territoryCounts[activePlayer] ?? 0
+
+    setUnits(nextUnits)
     setSelectedUnit(null)
     setTargetHex(null)
     setTurn(t => Math.min(t + 1, 20))
     setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
+    setScoreHistory(h => {
+      const prev = h[activePlayer]
+      const cumulative = (prev.at(-1) ?? 0) + playerScore
+      return { ...h, [activePlayer]: [...prev, cumulative] }
+    })
 
     if (capturedUnitsData.length > 0) {
       setRespawnQueue(capturedUnitsData)
@@ -205,6 +276,8 @@ export default function App() {
           }} />
         </div>
       </div>
+
+      <ScoreChart scoreHistory={scoreHistory} units={units} />
 
       <div style={{
         background: 'var(--bg-2)',
