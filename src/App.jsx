@@ -5,7 +5,7 @@ import { getReachableHexes } from './engine/movement.js'
 import { getThreatenedEnemies } from './engine/combat.js'
 import { countTerritoryHexes } from './engine/territory.js'
 
-const MOVE_RANGE = 3 // TODO: dépend du territoire (§3 core-game.md)
+const MOVE_RANGE = 2 // TODO: dépend du territoire (§3 core-game.md)
 
 function initUnits() {
   return Object.fromEntries(

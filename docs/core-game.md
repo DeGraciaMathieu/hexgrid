@@ -36,7 +36,7 @@ Les joueurs alternent les tours.
 La vitesse d'une unité dépend de sa position de départ au moment du mouvement :
 
 - **Vitesse 1 hex** si l'unité commence son mouvement dans le territoire qu'elle contrôle (derrière sa propre ligne).
-- **Vitesse 3 hex** si l'unité commence son mouvement en dehors de son territoire (zone neutre ou territoire adverse).
+- **Vitesse 2 hex** si l'unité commence son mouvement en dehors de son territoire (zone neutre ou territoire adverse).
 
 Les unités peuvent traverser les villes et les bunkers.
 
