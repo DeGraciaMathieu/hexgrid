@@ -17,19 +17,19 @@ const CHAR_TO_TYPE = {
 }
 
 const RAW_MAP = [
-  'oooofffooomoo',
-  'oofffoommmmoo',
-  'oofoooooommoo',
-  'oooooXoooowoo',
-  'ooooooooowwwo',
-  'oooooooowwooo',
-  'ooooXooofoooo',
-  'ooofoofffoooo',
-  'oooofffooommo',
+  'ooooooooooooo',
+  'ooooooooooooo',
+  'ooooooooXoooo',
+  'oooooXooooooo',
+  'ooooooooooooo',
+  'oooooooXooooo',
+  'ooooXoooooooo',
+  'ooooooooooooo',
+  'ooooooooooooo',
 ]
 
 const BASE_MAP = RAW_MAP.map(row =>
-  row.split('').map(ch => ch === 'm' ? 'open' : (CHAR_TO_TYPE[ch] || 'open'))
+  row.split('').map(ch => CHAR_TO_TYPE[ch] || 'open')
 )
 
 const MOUNTAIN_SEEDS = 4
@@ -65,42 +65,48 @@ function getNeighbors(col, row) {
     .filter(h => h.col >= 0 && h.col < COLS && h.row >= 1 && h.row <= 7)
 }
 
+const HALF_ROWS_MAX = Math.floor((ROWS - 1) / 2) // row 4 = centre, on génère dans rows 1–4
+
+function getNeighborsHalf(col, row) {
+  return getNeighbors(col, row).filter(h => h.row <= HALF_ROWS_MAX)
+}
+
 export function generateMap() {
   const map = BASE_MAP.map(row => [...row])
 
-  const isOpen = (col, row) => map[row]?.[col] === 'open'
-
-  const getOpenHexes = () => {
-    const hexes = []
-    for (let row = 1; row <= 7; row++) {
-      for (let col = 0; col < COLS; col++) {
-        if (isOpen(col, row)) hexes.push({ col, row })
-      }
-    }
-    return hexes
+  const place = (terrain, col, row) => {
+    map[row][col] = terrain
+    map[ROWS - 1 - row][COLS - 1 - col] = terrain
   }
 
   const placeCluster = (terrain, seeds, spreadChance, maxSize) => {
-    const openHexes = getOpenHexes()
-    for (let i = 0; i < seeds; i++) {
-      const j = i + Math.floor(Math.random() * (openHexes.length - i))
-      ;[openHexes[i], openHexes[j]] = [openHexes[j], openHexes[i]]
+    const halfHexes = []
+    for (let row = 1; row <= HALF_ROWS_MAX; row++) {
+      for (let col = 0; col < COLS; col++) {
+        halfHexes.push({ col, row })
+      }
     }
+
     for (let i = 0; i < seeds; i++) {
-      const seed = openHexes[i]
-      if (!isOpen(seed.col, seed.row)) continue
-      map[seed.row][seed.col] = terrain
+      const j = i + Math.floor(Math.random() * (halfHexes.length - i))
+      ;[halfHexes[i], halfHexes[j]] = [halfHexes[j], halfHexes[i]]
+    }
+
+    for (let i = 0; i < seeds; i++) {
+      const seed = halfHexes[i]
+      place(terrain, seed.col, seed.row)
       const frontier = [seed]
       let size = 1
+
       while (frontier.length > 0 && size < maxSize) {
         const idx = Math.floor(Math.random() * frontier.length)
         const current = frontier[idx]
         frontier.splice(idx, 1)
-        for (const nb of getNeighbors(current.col, current.row)) {
+
+        for (const nb of getNeighborsHalf(current.col, current.row)) {
           if (size >= maxSize) break
-          if (!isOpen(nb.col, nb.row)) continue
           if (Math.random() < spreadChance) {
-            map[nb.row][nb.col] = terrain
+            place(terrain, nb.col, nb.row)
             frontier.push(nb)
             size++
           }
