@@ -11,7 +11,7 @@ function initUnits() {
   return Object.fromEntries(
     Object.entries(SQUADS).map(([key, squad]) => [
       key,
-      { ...squad, roster: squad.roster.map(u => ({ ...u })) },
+      { ...squad, roster: squad.roster.map(({ from: _, ...u }) => u) },
     ])
   )
 }
