@@ -11,7 +11,7 @@ const MAX_TURNS = 20
 const PAD_LEFT = 36
 const PAD_BOTTOM = 18
 const INNER_W = 320
-const INNER_H = 100
+const INNER_H = 220
 const TOTAL_W = PAD_LEFT + INNER_W
 const TOTAL_H = INNER_H + PAD_BOTTOM
 const X_TICKS = [0, 5, 10, 15, 20]
@@ -90,9 +90,9 @@ function ScoreChart({ scoreHistory, units }) {
         {Object.entries(units).map(([key, squad]) => {
           const last = scoreHistory[key].at(-1) ?? 0
           return (
-            <span key={key}>
+            <span key={key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ color: squad.color }}>{squad.label.split('//')[1].trim()}</span>
-              <span style={{ color: 'var(--text-dim)' }}> {last} pts</span>
+              <span style={{ color: 'var(--text-dim)' }}>{last} pts</span>
             </span>
           )
         })}
@@ -306,14 +306,14 @@ export default function App() {
         </div>
       </div>
 
-      <ScoreChart scoreHistory={scoreHistory} units={units} />
-
-      <div style={{
-        background: 'var(--bg-2)',
-        border: '1px solid var(--line)',
-        borderRadius: 4,
-        padding: 20,
-      }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          background: 'var(--bg-2)',
+          border: '1px solid var(--line)',
+          borderRadius: 4,
+          padding: 20,
+        }}>
         <HexMap
           units={units}
           selectedUnit={selectedUnit}
@@ -390,6 +390,11 @@ export default function App() {
             </button>
           </div>
         )}
+        </div>
+        </div>
+        <div style={{ width: 260, flexShrink: 0 }}>
+          <ScoreChart scoreHistory={scoreHistory} units={units} />
+        </div>
       </div>
     </div>
   )
