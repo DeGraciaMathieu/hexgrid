@@ -21,16 +21,13 @@ function ScoreChart({ scoreHistory, units }) {
     ...scoreHistory.p2,
   )
 
-  function toPoints(history, playerKey) {
+  function toCoords(history, playerKey) {
     return history.map((score, i) => {
-      // chaque entrée correspond à un tour du joueur (p1 = tours impairs, p2 = tours pairs)
-      const turnIndex = playerKey === 'p1'
-        ? i * 2
-        : i * 2 + 1
+      const turnIndex = playerKey === 'p1' ? i * 2 : i * 2 + 1
       const x = (turnIndex / (MAX_TURNS - 1)) * CHART_W
       const y = CHART_H - (score / maxScore) * CHART_H
-      return `${x},${y}`
-    }).join(' ')
+      return { x, y }
+    })
   }
 
   return (
@@ -41,14 +38,19 @@ function ScoreChart({ scoreHistory, units }) {
       <svg width="100%" viewBox={`0 0 ${CHART_W} ${CHART_H}`} style={{ display: 'block' }}>
         <line x1="0" y1={CHART_H} x2={CHART_W} y2={CHART_H} stroke="var(--line)" strokeWidth="1" />
         {Object.entries(scoreHistory).map(([key, history]) => {
-          const pts = toPoints(history, key)
-          if (!pts) return null
+          const coords = toCoords(history, key)
+          if (coords.length === 0) return null
+          const color = units[key].color
+          if (coords.length === 1) {
+            return <circle key={key} cx={coords[0].x} cy={coords[0].y} r="2.5" fill={color} opacity="0.85" />
+          }
+          const pts = coords.map(c => `${c.x},${c.y}`).join(' ')
           return (
             <polyline
               key={key}
               points={pts}
               fill="none"
-              stroke={units[key].color}
+              stroke={color}
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
