@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import HexMap from './components/HexMap.jsx'
+import ScoreChart from './components/ScoreChart.jsx'
+import StartScreen from './components/StartScreen.jsx'
 import { SQUADS, COLS, ROWS, generateMap } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
 import { getThreatenedEnemies } from './engine/combat.js'
@@ -10,100 +12,6 @@ import { applyMove, applyRespawn, MAX_TURNS } from './engine/gameflow.js'
 const MOVE_RANGE = 2
 const AI_PLAYER = 'p2'
 const AI_STEP_MS = 600 // TODO: dépend du territoire (§3 core-game.md)
-const PAD_LEFT = 52
-const PAD_TOP = 16
-const PAD_BOTTOM = 24
-const INNER_W = 800
-const INNER_H = 140
-const TOTAL_W = PAD_LEFT + INNER_W
-const TOTAL_H = PAD_TOP + INNER_H + PAD_BOTTOM
-const X_TICKS = [0, 5, 10, 15, 20]
-const Y_LEVELS = [0.5, 1]
-
-function ScoreChart({ scoreHistory, units }) {
-  const hasData = scoreHistory.p1.length > 0 || scoreHistory.p2.length > 0
-  if (!hasData) return null
-
-  const rawMax = Math.max(1, ...scoreHistory.p1, ...scoreHistory.p2)
-  const domainMax = rawMax * 1.1
-
-  function toCoords(history, playerKey) {
-    return history.map((score, i) => {
-      const turnIndex = playerKey === 'p1' ? i * 2 : i * 2 + 1
-      const x = PAD_LEFT + (turnIndex / (MAX_TURNS - 1)) * INNER_W
-      const y = PAD_TOP + INNER_H - (score / domainMax) * INNER_H
-      return { x, y }
-    })
-  }
-
-  return (
-    <div style={{ marginBottom: 16, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 4, padding: '12px 16px' }}>
-      <div style={{ fontSize: 11, letterSpacing: '0.2em', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 8 }}>
-        territoire · historique
-      </div>
-      <svg width="100%" viewBox={`0 0 ${TOTAL_W} ${TOTAL_H}`} style={{ display: 'block' }}>
-
-        {/* grille horizontale */}
-        {Y_LEVELS.map(level => {
-          const y = PAD_TOP + INNER_H - level * INNER_H
-          const label = Math.round(level * domainMax)
-          return (
-            <g key={level}>
-              <line x1={PAD_LEFT} y1={y} x2={PAD_LEFT + INNER_W} y2={y} stroke="#30363d" strokeWidth="1" strokeDasharray="3 3" />
-              <text x={PAD_LEFT - 4} y={y + 3.5} textAnchor="end" fontSize="11" fill="#6e7681" fontFamily="JetBrains Mono, monospace">{label}</text>
-            </g>
-          )
-        })}
-
-        {/* axe X */}
-        <line x1={PAD_LEFT} y1={PAD_TOP + INNER_H} x2={PAD_LEFT + INNER_W} y2={PAD_TOP + INNER_H} stroke="#30363d" strokeWidth="1" />
-        {X_TICKS.map(t => {
-          const x = PAD_LEFT + (t / (MAX_TURNS - 1)) * INNER_W
-          return (
-            <g key={t}>
-              <line x1={x} y1={PAD_TOP + INNER_H} x2={x} y2={PAD_TOP + INNER_H + 3} stroke="#30363d" strokeWidth="1" />
-              <text x={x} y={PAD_TOP + INNER_H + 14} textAnchor="middle" fontSize="11" fill="#6e7681" fontFamily="JetBrains Mono, monospace">{t}</text>
-            </g>
-          )
-        })}
-
-        {/* courbes */}
-        {Object.entries(scoreHistory).map(([key, history]) => {
-          const coords = toCoords(history, key)
-          if (coords.length === 0) return null
-          const color = units[key].color
-          if (coords.length === 1) {
-            return <circle key={key} cx={coords[0].x} cy={coords[0].y} r="2.5" fill={color} opacity="0.85" />
-          }
-          return (
-            <polyline
-              key={key}
-              points={coords.map(c => `${c.x},${c.y}`).join(' ')}
-              fill="none"
-              stroke={color}
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.85"
-            />
-          )
-        })}
-      </svg>
-
-      <div style={{ display: 'flex', gap: 20, marginTop: 6, fontSize: 11, letterSpacing: '0.15em' }}>
-        {Object.entries(units).map(([key, squad]) => {
-          const last = scoreHistory[key].at(-1) ?? 0
-          return (
-            <span key={key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ color: squad.color }}>{squad.label.split('//')[1].trim()}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{last} pts</span>
-            </span>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 function initUnits() {
   return Object.fromEntries(
@@ -111,69 +19,6 @@ function initUnits() {
       key,
       { ...squad, roster: squad.roster.map(({ from: _, ...u }) => u) },
     ])
-  )
-}
-
-function StartScreen({ onSelect }) {
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 420, width: '100%', padding: '0 20px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 11, letterSpacing: '0.3em', color: 'var(--accent)', textTransform: 'uppercase' }}>
-            // sector-07 / recon overlay
-          </span>
-          <h1 style={{
-            fontFamily: "'Major Mono Display', monospace",
-            fontSize: 'clamp(28px, 5vw, 44px)',
-            fontWeight: 400,
-            letterSpacing: '-0.02em',
-            lineHeight: 1,
-            margin: 0,
-          }}>
-            hex grid
-          </h1>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', letterSpacing: '0.05em' }}>
-            <span className="blink" />
-            sélectionnez un mode de jeu
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {[
-            { mode: 'ai', label: 'vs IA', desc: 'joueur 1 contre l\'intelligence artificielle' },
-            { mode: '2p', label: '2 joueurs', desc: 'deux joueurs sur le même écran' },
-          ].map(({ mode, label, desc }) => (
-            <button
-              key={mode}
-              onClick={() => onSelect(mode)}
-              style={{
-                background: 'var(--bg-2)',
-                border: '1px solid var(--line)',
-                borderRadius: 4,
-                padding: '16px 20px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                transition: 'border-color 0.15s',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--line)'}
-            >
-              <span style={{ fontSize: 13, color: 'var(--text)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.05em' }}>{desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
   )
 }
 
