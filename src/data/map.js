@@ -38,11 +38,11 @@ export const SQUADS = {
     color: '#ff5a4a',
     startRow: 0,
     roster: [
-      { col: 1,  row: 1, code: 'L', name: 'Leader'  },
-      { col: 3,  row: 1, code: 'S', name: 'Sniper'  },
-      { col: 5,  row: 3, code: 'F', name: 'Fighter', from: [5, 1] },
-      { col: 7,  row: 2, code: 'G', name: 'Gunner',  from: [7, 1] },
-      { col: 11, row: 1, code: 'T', name: 'Trooper' },
+      { col: 1,  row: 0, code: 'L', name: 'Leader'  },
+      { col: 3,  row: 0, code: 'S', name: 'Sniper'  },
+      { col: 5,  row: 0, code: 'F', name: 'Fighter' },
+      { col: 7,  row: 0, code: 'G', name: 'Gunner'  },
+      { col: 11, row: 0, code: 'T', name: 'Trooper' },
     ],
   },
   p1: {
@@ -50,11 +50,11 @@ export const SQUADS = {
     color: '#58a6ff',
     startRow: 8,
     roster: [
-      { col: 1,  row: 7, code: 'T', name: 'Trooper' },
-      { col: 3,  row: 6, code: 'G', name: 'Gunner',  from: [3, 7] },
-      { col: 7,  row: 6, code: 'M', name: 'Medic',   from: [7, 7] },
-      { col: 9,  row: 7, code: 'S', name: 'Sniper'  },
-      { col: 11, row: 7, code: 'L', name: 'Leader'  },
+      { col: 1,  row: 8, code: 'T', name: 'Trooper' },
+      { col: 3,  row: 8, code: 'G', name: 'Gunner'  },
+      { col: 7,  row: 8, code: 'M', name: 'Medic'   },
+      { col: 9,  row: 8, code: 'S', name: 'Sniper'  },
+      { col: 11, row: 8, code: 'L', name: 'Leader'  },
     ],
   },
 }
