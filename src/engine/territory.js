@@ -1,4 +1,4 @@
-import { computeFrontierPoints } from './frontier.js'
+import { computeFrontierPoints, checkExtensions } from './frontier.js'
 import { COLS, ROWS, HEX_SIZE } from '../data/map.js'
 
 const PADDING = 20
@@ -44,11 +44,16 @@ export function countTerritoryHexes(units) {
 
     const enemyPts = enemyRosters.map(u => hexCenter(u.col, u.row))
     const frontierPts = computeFrontierPoints(unitPts, isTop, enemyPts)
+    const { leftBlocked, rightBlocked } = checkExtensions(frontierPts, isTop, enemyPts)
 
     let count = 0
     for (let col = 0; col < COLS; col++) {
       for (let row = 0; row < ROWS; row++) {
         const { cx, cy } = hexCenter(col, row)
+
+        if (leftBlocked && cx < frontierPts[0].cx) continue
+        if (rightBlocked && cx > frontierPts[frontierPts.length - 1].cx) continue
+
         const frontierY = interpolateFrontierY(frontierPts, cx)
 
         // Hex derrière la ligne (côté base du joueur)
