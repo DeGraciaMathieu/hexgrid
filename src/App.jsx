@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import HexMap from './components/HexMap.jsx'
 import { SQUADS, COLS, ROWS } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
@@ -122,6 +122,17 @@ export default function App() {
   const [activePlayer, setActivePlayer] = useState('p1')
   const [scoreHistory, setScoreHistory] = useState({ p1: [], p2: [] })
   const [gameOver, setGameOver] = useState(false)
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.code === 'Space' && phase === 'move' && selectedUnit && targetHex) {
+        e.preventDefault()
+        handleConfirmMove()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [phase, selectedUnit, targetHex])
 
   const occupiedHexes = selectedUnit
     ? Object.entries(units).flatMap(([key, squad]) =>
