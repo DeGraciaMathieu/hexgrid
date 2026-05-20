@@ -22,6 +22,7 @@ export default function App() {
   const [targetHex, setTargetHex] = useState(null)       // { col, row }
   const [phase, setPhase] = useState('move')             // 'move' | 'respawn'
   const [respawnQueue, setRespawnQueue] = useState([])   // [{ squadKey, unit }]
+  const [turn, setTurn] = useState(1)
 
   const occupiedHexes = selectedUnit
     ? Object.entries(units).flatMap(([key, squad]) =>
@@ -111,6 +112,7 @@ export default function App() {
 
     setSelectedUnit(null)
     setTargetHex(null)
+    setTurn(t => Math.min(t + 1, 20))
 
     if (capturedUnitsData.length > 0) {
       setRespawnQueue(capturedUnitsData)
@@ -182,6 +184,22 @@ export default function App() {
           )
         })()}
       </header>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, letterSpacing: '0.2em', color: 'var(--text-dim)', marginBottom: 6 }}>
+          <span style={{ textTransform: 'uppercase' }}>tour</span>
+          <span><span style={{ color: 'var(--text)' }}>{turn}</span> / 20</span>
+        </div>
+        <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%',
+            width: `${(turn / 20) * 100}%`,
+            background: 'var(--accent)',
+            borderRadius: 2,
+            transition: 'width 0.3s ease',
+          }} />
+        </div>
+      </div>
 
       <div style={{
         background: 'var(--bg-2)',
