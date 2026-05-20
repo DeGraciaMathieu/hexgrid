@@ -268,62 +268,11 @@ export default function App() {
     setTargetHex(null)
   }
 
-  if (gameOver) {
-    const p1Score = scoreHistory.p1.at(-1) ?? 0
-    const p2Score = scoreHistory.p2.at(-1) ?? 0
-    const winner = p1Score > p2Score ? units.p1 : p2Score > p1Score ? units.p2 : null
-    return (
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', padding: '32px 20px 60px' }}>
-        <div style={{
-          background: 'var(--bg-2)',
-          border: '1px solid var(--line)',
-          borderRadius: 4,
-          padding: '48px 32px',
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 11, letterSpacing: '0.3em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 16 }}>
-            // fin de partie · tour 20
-          </div>
-          {winner ? (
-            <>
-              <div style={{ fontFamily: "'Major Mono Display', monospace", fontSize: 'clamp(24px, 4vw, 36px)', color: winner.color, marginBottom: 8 }}>
-                {winner.label.split('//')[1].trim()}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 32 }}>
-                victoire
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontFamily: "'Major Mono Display', monospace", fontSize: 'clamp(24px, 4vw, 36px)', color: 'var(--text)', marginBottom: 8 }}>
-                égalité
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 32 }}>
-                même score
-              </div>
-            </>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 40, marginBottom: 40 }}>
-            {Object.entries(units).map(([key, squad]) => {
-              const score = key === 'p1' ? p1Score : p2Score
-              return (
-                <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ fontSize: 11, letterSpacing: '0.2em', color: squad.color, textTransform: 'uppercase' }}>
-                    {squad.label.split('//')[1].trim()}
-                  </span>
-                  <span style={{ fontFamily: "'Major Mono Display', monospace", fontSize: 28, color: 'var(--text)' }}>
-                    {score}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>pts</span>
-                </div>
-              )
-            })}
-          </div>
-          <ScoreChart scoreHistory={scoreHistory} units={units} />
-        </div>
-      </div>
-    )
-  }
+  const p1Score = scoreHistory.p1.at(-1) ?? 0
+  const p2Score = scoreHistory.p2.at(-1) ?? 0
+  const winner = gameOver
+    ? (p1Score > p2Score ? units.p1 : p2Score > p1Score ? units.p2 : null)
+    : null
 
   return (
     <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', padding: '32px 20px 60px' }}>
@@ -369,21 +318,43 @@ export default function App() {
       <ScoreChart scoreHistory={scoreHistory} units={units} />
 
       <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, letterSpacing: '0.2em', color: 'var(--text-dim)', marginBottom: 6 }}>
-          <span style={{ color: units[activePlayer].color, textTransform: 'uppercase' }}>
-            {units[activePlayer].label.split('//')[1].trim()}
-          </span>
-          <span><span style={{ color: 'var(--text)' }}>{turn}</span> / 20</span>
-        </div>
-        <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%',
-            width: `${(turn / 20) * 100}%`,
-            background: 'var(--accent)',
-            borderRadius: 2,
-            transition: 'width 0.3s ease',
-          }} />
-        </div>
+        {gameOver ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, letterSpacing: '0.15em' }}>
+            <span style={{ color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.3em', fontSize: 11 }}>// fin de partie</span>
+            {winner ? (
+              <>
+                <span style={{ color: winner.color, fontWeight: 600 }}>{winner.label.split('//')[1].trim()}</span>
+                <span style={{ color: 'var(--text-dim)' }}>victoire</span>
+              </>
+            ) : (
+              <span style={{ color: 'var(--text-dim)' }}>égalité</span>
+            )}
+            <span style={{ marginLeft: 'auto', color: 'var(--text-dim)' }}>
+              {Object.entries(units).map(([key, squad]) => {
+                const score = key === 'p1' ? p1Score : p2Score
+                return <span key={key} style={{ marginLeft: 16 }}><span style={{ color: squad.color }}>{squad.label.split('//')[1].trim()}</span> {score} pts</span>
+              })}
+            </span>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, letterSpacing: '0.2em', color: 'var(--text-dim)', marginBottom: 6 }}>
+              <span style={{ color: units[activePlayer].color, textTransform: 'uppercase' }}>
+                {units[activePlayer].label.split('//')[1].trim()}
+              </span>
+              <span><span style={{ color: 'var(--text)' }}>{turn}</span> / 20</span>
+            </div>
+            <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${(turn / 20) * 100}%`,
+                background: 'var(--accent)',
+                borderRadius: 2,
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+          </>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
