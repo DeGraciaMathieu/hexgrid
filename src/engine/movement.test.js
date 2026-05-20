@@ -78,6 +78,30 @@ describe('getReachableHexes', () => {
     expect(result.length).toBeGreaterThanOrEqual(12)
   })
 
+  describe('Montagnes (terrain impassable)', () => {
+    it("une unité ne peut pas se déplacer sur une montagne", () => {
+      const mountains = [{ col: 5, row: 4 }]
+      const result = getReachableHexes(4, 4, 2, COLS, ROWS, [], mountains)
+      expect(result.some(h => h.col === 5 && h.row === 4)).toBe(false)
+    })
+
+    it("une montagne bloque le passage vers les hexes derrière elle", () => {
+      // (5,3) est le seul voisin commun entre (4,4) et (6,3) :
+      // sans montagne (6,3) est atteignable en 2 pas, avec montagne il ne l'est plus
+      const sansMontagne = getReachableHexes(4, 4, 2, COLS, ROWS)
+      expect(sansMontagne.some(h => h.col === 6 && h.row === 3)).toBe(true)
+
+      const avecMontagne = getReachableHexes(4, 4, 2, COLS, ROWS, [], [{ col: 5, row: 3 }])
+      expect(avecMontagne.some(h => h.col === 6 && h.row === 3)).toBe(false)
+    })
+
+    it("un hex reste atteignable si une voie alternative contourne la montagne", () => {
+      // (6,4) est accessible via (4,4)→(5,4)→(6,4) même si (5,3) est bloqué
+      const avecMontagne = getReachableHexes(4, 4, 2, COLS, ROWS, [], [{ col: 5, row: 3 }])
+      expect(avecMontagne.some(h => h.col === 6 && h.row === 4)).toBe(true)
+    })
+  })
+
   describe('Occupation des cases', () => {
     // Tests fonctionnels : une unité ne peut jamais se déplacer sur une case déjà occupée,
     // qu'elle soit tenue par un allié ou un ennemi.

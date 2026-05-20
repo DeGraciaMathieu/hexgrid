@@ -89,6 +89,31 @@ describe('Capture par encerclement', () => {
     expect(threatened[0]).toMatchObject({ squadKey: 'p1', unitIndex: 0 })
   })
 
+  describe('Montagne et LOS', () => {
+    it("une montagne interposée empêche la capture en coupant la LOS", () => {
+      // ally 0 → (4,4), ally 1 fixe en (6,2), ennemi en (6,4)
+      // les deux sont à distance 2 de l'ennemi → capture sans obstacle
+      // montagne en (5,3) = intermédiaire LOS entre (4,4) et (6,4)
+      const units = buildUnits([[0, 0], [6, 2]], [[6, 4]])
+      const mountain = [{ col: 5, row: 3 }]
+
+      const sansMontagne = getThreatenedEnemies(selectedFirst, { col: 4, row: 4 }, units)
+      expect(sansMontagne.length).toBe(1)
+
+      const avecMontagne = getThreatenedEnemies(selectedFirst, { col: 4, row: 4 }, units, mountain)
+      expect(avecMontagne.length).toBe(0)
+    })
+
+    it("une montagne hors axe ne perturbe pas la capture", () => {
+      // montagne en (2,2) : ne coupe aucune LOS entre les unités impliquées
+      const units = buildUnits([[0, 0], [6, 2]], [[6, 4]])
+      const mountain = [{ col: 2, row: 2 }]
+
+      const result = getThreatenedEnemies(selectedFirst, { col: 4, row: 4 }, units, mountain)
+      expect(result.length).toBe(1)
+    })
+  })
+
   it("un ennemi adjacent (distance 1) à 2 alliés est capturé", () => {
     // Allié 0 se déplace en (4,4), allié 1 en (6,4), ennemi en (5,4) : distance 1 des deux
     const units = buildUnits(
