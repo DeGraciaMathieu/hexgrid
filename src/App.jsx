@@ -7,25 +7,27 @@ import { countTerritoryHexes } from './engine/territory.js'
 
 const MOVE_RANGE = 2 // TODO: dépend du territoire (§3 core-game.md)
 
-const CHART_W = 320
-const CHART_H = 80
 const MAX_TURNS = 20
+const PAD_LEFT = 36
+const PAD_BOTTOM = 18
+const INNER_W = 320
+const INNER_H = 100
+const TOTAL_W = PAD_LEFT + INNER_W
+const TOTAL_H = INNER_H + PAD_BOTTOM
+const X_TICKS = [0, 5, 10, 15, 20]
+const Y_LEVELS = [0.25, 0.5, 0.75, 1]
 
 function ScoreChart({ scoreHistory, units }) {
   const hasData = scoreHistory.p1.length > 0 || scoreHistory.p2.length > 0
   if (!hasData) return null
 
-  const maxScore = Math.max(
-    1,
-    ...scoreHistory.p1,
-    ...scoreHistory.p2,
-  )
+  const maxScore = Math.max(1, ...scoreHistory.p1, ...scoreHistory.p2)
 
   function toCoords(history, playerKey) {
     return history.map((score, i) => {
       const turnIndex = playerKey === 'p1' ? i * 2 : i * 2 + 1
-      const x = (turnIndex / (MAX_TURNS - 1)) * CHART_W
-      const y = CHART_H - (score / maxScore) * CHART_H
+      const x = PAD_LEFT + (turnIndex / (MAX_TURNS - 1)) * INNER_W
+      const y = INNER_H - (score / maxScore) * INNER_H
       return { x, y }
     })
   }
@@ -35,8 +37,33 @@ function ScoreChart({ scoreHistory, units }) {
       <div style={{ fontSize: 11, letterSpacing: '0.2em', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 8 }}>
         territoire · historique
       </div>
-      <svg width="100%" viewBox={`0 0 ${CHART_W} ${CHART_H}`} style={{ display: 'block' }}>
-        <line x1="0" y1={CHART_H} x2={CHART_W} y2={CHART_H} stroke="var(--line)" strokeWidth="1" />
+      <svg width="100%" viewBox={`0 0 ${TOTAL_W} ${TOTAL_H}`} style={{ display: 'block' }}>
+
+        {/* grille horizontale */}
+        {Y_LEVELS.map(level => {
+          const y = INNER_H - level * INNER_H
+          const label = Math.round(level * maxScore)
+          return (
+            <g key={level}>
+              <line x1={PAD_LEFT} y1={y} x2={PAD_LEFT + INNER_W} y2={y} stroke="#30363d" strokeWidth="1" strokeDasharray="3 3" />
+              <text x={PAD_LEFT - 4} y={y + 3.5} textAnchor="end" fontSize="8" fill="#6e7681" fontFamily="JetBrains Mono, monospace">{label}</text>
+            </g>
+          )
+        })}
+
+        {/* axe X */}
+        <line x1={PAD_LEFT} y1={INNER_H} x2={PAD_LEFT + INNER_W} y2={INNER_H} stroke="#30363d" strokeWidth="1" />
+        {X_TICKS.map(t => {
+          const x = PAD_LEFT + (t / (MAX_TURNS - 1)) * INNER_W
+          return (
+            <g key={t}>
+              <line x1={x} y1={INNER_H} x2={x} y2={INNER_H + 3} stroke="#30363d" strokeWidth="1" />
+              <text x={x} y={INNER_H + 11} textAnchor="middle" fontSize="8" fill="#6e7681" fontFamily="JetBrains Mono, monospace">{t}</text>
+            </g>
+          )
+        })}
+
+        {/* courbes */}
         {Object.entries(scoreHistory).map(([key, history]) => {
           const coords = toCoords(history, key)
           if (coords.length === 0) return null
@@ -44,11 +71,10 @@ function ScoreChart({ scoreHistory, units }) {
           if (coords.length === 1) {
             return <circle key={key} cx={coords[0].x} cy={coords[0].y} r="2.5" fill={color} opacity="0.85" />
           }
-          const pts = coords.map(c => `${c.x},${c.y}`).join(' ')
           return (
             <polyline
               key={key}
-              points={pts}
+              points={coords.map(c => `${c.x},${c.y}`).join(' ')}
               fill="none"
               stroke={color}
               strokeWidth="1.5"
@@ -59,7 +85,8 @@ function ScoreChart({ scoreHistory, units }) {
           )
         })}
       </svg>
-      <div style={{ display: 'flex', gap: 20, marginTop: 8, fontSize: 11, letterSpacing: '0.15em' }}>
+
+      <div style={{ display: 'flex', gap: 20, marginTop: 6, fontSize: 11, letterSpacing: '0.15em' }}>
         {Object.entries(units).map(([key, squad]) => {
           const last = scoreHistory[key].at(-1) ?? 0
           return (
