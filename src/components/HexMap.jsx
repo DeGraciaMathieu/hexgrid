@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { COLS, ROWS, HEX_SIZE, TERRAIN, MAP } from '../data/map.js'
+import { COLS, ROWS, HEX_SIZE, TERRAIN } from '../data/map.js'
 import { computeFrontierPoints, checkExtensions } from '../engine/frontier.js'
 import { interpolateFrontierY } from '../engine/territory.js'
 
@@ -316,8 +316,8 @@ function Units({ units, selectedUnit, onSelectUnit, onHover }) {
   )
 }
 
-function HexTile({ col, row, onHover, onClick }) {
-  const type = MAP[row]?.[col] ?? 'open'
+function HexTile({ col, row, map, onHover, onClick }) {
+  const type = map[row]?.[col] ?? 'open'
   const terrain = TERRAIN[type]
   const { cx, cy } = hexCenter(col, row)
   const coordLabel = `${col.toString(16).toUpperCase()}${row.toString(16).toUpperCase()}`
@@ -406,7 +406,7 @@ function ThreatenedUnits({ threatenedEnemies }) {
   })
 }
 
-export default function HexMap({ units, selectedUnit, targetHex, reachableHexes, threatenedEnemies = [], respawnHexes = [], respawnSquadColor = null, onSelectUnit, onSelectHex }) {
+export default function HexMap({ map, units, selectedUnit, targetHex, reachableHexes, threatenedEnemies = [], respawnHexes = [], respawnSquadColor = null, onSelectUnit, onSelectHex }) {
   const [hoverInfo, setHoverInfo] = useState('— · —')
 
   const selectedColor = selectedUnit ? units[selectedUnit.squadKey].color : null
@@ -432,6 +432,7 @@ export default function HexMap({ units, selectedUnit, targetHex, reachableHexes,
                 key={`${col}-${row}`}
                 col={col}
                 row={row}
+                map={map}
                 onHover={setHoverInfo}
                 onClick={() => onSelectHex(col, row)}
               />

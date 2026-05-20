@@ -23,14 +23,37 @@ const RAW_MAP = [
   'ooouoXoooowoo',
   'oouuuoooowwwo',
   'oouooooowwooo',
-  'ooooXooofooo',
+  'ooooXooofoooo',
   'ooofoofffoooo',
   'oooofffooommo',
 ]
 
-export const MAP = RAW_MAP.map(row =>
-  row.split('').map(ch => CHAR_TO_TYPE[ch] || 'open')
+const BASE_MAP = RAW_MAP.map(row =>
+  row.split('').map(ch => ch === 'm' ? 'open' : (CHAR_TO_TYPE[ch] || 'open'))
 )
+
+const MOUNTAIN_COUNT = 8
+
+export function generateMap() {
+  const map = BASE_MAP.map(row => [...row])
+
+  const candidates = []
+  for (let row = 1; row <= 7; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if (map[row][col] === 'open') candidates.push({ col, row })
+    }
+  }
+
+  // Fisher-Yates shuffle partiel pour choisir MOUNTAIN_COUNT hexes
+  for (let i = 0; i < MOUNTAIN_COUNT; i++) {
+    const j = i + Math.floor(Math.random() * (candidates.length - i))
+    ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
+    const { col, row } = candidates[i]
+    map[row][col] = 'mountain'
+  }
+
+  return map
+}
 
 export const SQUADS = {
   p2: {

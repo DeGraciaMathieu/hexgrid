@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import HexMap from './components/HexMap.jsx'
-import { SQUADS, COLS, ROWS } from './data/map.js'
+import { SQUADS, COLS, ROWS, generateMap } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
 import { getThreatenedEnemies } from './engine/combat.js'
 import { countTerritoryHexes } from './engine/territory.js'
@@ -116,6 +116,7 @@ function initUnits() {
 }
 
 export default function App() {
+  const [map] = useState(generateMap)
   const [units, setUnits] = useState(initUnits)
   const [selectedUnit, setSelectedUnit] = useState(null) // { squadKey, unitIndex }
   const [targetHex, setTargetHex] = useState(null)       // { col, row }
@@ -483,6 +484,7 @@ export default function App() {
           padding: 20,
         }}>
         <HexMap
+          map={map}
           units={units}
           selectedUnit={selectedUnit}
           targetHex={targetHex}
