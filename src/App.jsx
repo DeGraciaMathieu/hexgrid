@@ -4,8 +4,11 @@ import { SQUADS, COLS, ROWS } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
 import { getThreatenedEnemies } from './engine/combat.js'
 import { countTerritoryHexes } from './engine/territory.js'
+import { computeAIMove, computeAIRespawn } from './engine/ai.js'
 
-const MOVE_RANGE = 2 // TODO: dépend du territoire (§3 core-game.md)
+const MOVE_RANGE = 2
+const AI_PLAYER = 'p2'
+const AI_STEP_MS = 600 // TODO: dépend du territoire (§3 core-game.md)
 
 const MAX_TURNS = 20
 const PAD_LEFT = 52
@@ -125,14 +128,14 @@ export default function App() {
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.code === 'Space' && phase === 'move' && selectedUnit && targetHex) {
+      if (e.code === 'Space' && phase === 'move' && selectedUnit && targetHex && activePlayer !== AI_PLAYER) {
         e.preventDefault()
         handleConfirmMove()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [phase, selectedUnit, targetHex])
+  }, [phase, selectedUnit, targetHex, activePlayer])
 
   const occupiedHexes = selectedUnit
     ? Object.entries(units).flatMap(([key, squad]) =>
@@ -182,9 +185,11 @@ export default function App() {
 
   function handleSelectHex(col, row) {
     if (phase === 'respawn') {
+      if (respawnQueue[0]?.squadKey === AI_PLAYER) return
       handleRespawnPlace(col, row)
       return
     }
+    if (activePlayer === AI_PLAYER) return
     if (!selectedUnit) return
     const isReachable = reachableHexes.some(h => h.col === col && h.row === row)
     if (isReachable) setTargetHex({ col, row })
@@ -262,6 +267,118 @@ export default function App() {
     setRespawnQueue(newQueue)
     if (newQueue.length === 0) setPhase('move')
   }
+
+  // IA : tour de mouvement
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (gameOver || activePlayer !== AI_PLAYER || phase !== 'move') return
+
+    const decision = computeAIMove(units, AI_PLAYER)
+
+    // Pré-calcul atomique de tous les changements d'état
+    let nextUnits, capturedUnitsData, nextHistory
+
+    if (decision) {
+      const aiUnit = { squadKey: AI_PLAYER, unitIndex: decision.unitIndex }
+      const target = { col: decision.col, row: decision.row }
+      const threatened = getThreatenedEnemies(aiUnit, target, units)
+
+      capturedUnitsData = threatened.map(({ squadKey, unitIndex: ui }) => ({
+        squadKey,
+        unit: { ...units[squadKey].roster[ui] },
+      }))
+
+      nextUnits = { ...units }
+      nextUnits[AI_PLAYER] = {
+        ...nextUnits[AI_PLAYER],
+        roster: nextUnits[AI_PLAYER].roster.map((u, i) =>
+          i === decision.unitIndex ? { ...u, col: decision.col, row: decision.row, from: undefined } : u
+        ),
+      }
+
+      const capturedBySquad = {}
+      threatened.forEach(({ squadKey: sk, unitIndex: ui }) => {
+        if (!capturedBySquad[sk]) capturedBySquad[sk] = new Set()
+        capturedBySquad[sk].add(ui)
+      })
+      Object.entries(capturedBySquad).forEach(([sk, indices]) => {
+        nextUnits[sk] = {
+          ...nextUnits[sk],
+          roster: nextUnits[sk].roster.filter((_, i) => !indices.has(i)),
+        }
+      })
+
+      const playerScore = countTerritoryHexes(nextUnits)[AI_PLAYER] ?? 0
+      nextHistory = {
+        ...scoreHistory,
+        [AI_PLAYER]: [...scoreHistory[AI_PLAYER], (scoreHistory[AI_PLAYER].at(-1) ?? 0) + playerScore],
+      }
+    } else {
+      capturedUnitsData = []
+      nextUnits = units
+      const playerScore = countTerritoryHexes(units)[AI_PLAYER] ?? 0
+      nextHistory = {
+        ...scoreHistory,
+        [AI_PLAYER]: [...scoreHistory[AI_PLAYER], (scoreHistory[AI_PLAYER].at(-1) ?? 0) + playerScore],
+      }
+    }
+
+    const timers = []
+
+    if (decision) {
+      timers.push(setTimeout(() => setSelectedUnit({ squadKey: AI_PLAYER, unitIndex: decision.unitIndex }), AI_STEP_MS))
+      timers.push(setTimeout(() => setTargetHex({ col: decision.col, row: decision.row }), AI_STEP_MS * 2))
+    }
+
+    timers.push(setTimeout(() => {
+      setUnits(nextUnits)
+      setSelectedUnit(null)
+      setTargetHex(null)
+      setScoreHistory(nextHistory)
+
+      if (capturedUnitsData.length > 0) {
+        setRespawnQueue(capturedUnitsData)
+        setPhase('respawn')
+      }
+
+      if (turn === 20) {
+        setGameOver(true)
+        return
+      }
+      setTurn(t => t + 1)
+      setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
+    }, decision ? AI_STEP_MS * 3 : AI_STEP_MS))
+
+    return () => timers.forEach(clearTimeout)
+  }, [activePlayer, phase, gameOver])
+
+  // IA : phase de respawn
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (phase !== 'respawn' || respawnQueue.length === 0) return
+    if (respawnQueue[0].squadKey !== AI_PLAYER) return
+
+    const hex = computeAIRespawn(respawnHexes, units, AI_PLAYER)
+    if (!hex) return
+
+    const { squadKey, unit } = respawnQueue[0]
+
+    const t = setTimeout(() => {
+      setUnits(prev => ({
+        ...prev,
+        [squadKey]: {
+          ...prev[squadKey],
+          roster: [...prev[squadKey].roster, { ...unit, col: hex.col, row: hex.row, from: undefined }],
+        },
+      }))
+
+      const newQueue = respawnQueue.slice(1)
+      setRespawnQueue(newQueue)
+      if (newQueue.length === 0) setPhase('move')
+    }, AI_STEP_MS)
+
+    return () => clearTimeout(t)
+  }, [phase, respawnQueue])
 
   function handleCancel() {
     setSelectedUnit(null)
