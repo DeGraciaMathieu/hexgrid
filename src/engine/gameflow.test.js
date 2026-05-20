@@ -52,6 +52,35 @@ const MOVE = {
   targetHex: { col: 3, row: 4 },
 }
 
+describe('Régression — champ from après mouvement', () => {
+  it('applyMove enregistre la position de départ dans from', () => {
+    const state = buildState({
+      activePlayer: 'p1',
+      p1Roster: [[3, 4]],
+      p2Roster: [[10, 8]],
+    })
+
+    const next = applyMove(state, {
+      selectedUnit: { squadKey: 'p1', unitIndex: 0 },
+      targetHex: { col: 4, row: 4 },
+    })
+
+    expect(next.units.p1.roster[0].from).toEqual([3, 4])
+    expect(next.units.p1.roster[0].col).toBe(4)
+    expect(next.units.p1.roster[0].row).toBe(4)
+  })
+
+  it('applyRespawn laisse from à undefined', () => {
+    const state = buildCaptureState(10)
+    const afterMove = applyMove(state, MOVE)
+    const afterRespawn = applyRespawn(afterMove, { col: 0, row: 8 })
+
+    const respawnedUnit = afterRespawn.units.p2.roster.find(u => u.col === 0 && u.row === 8)
+    expect(respawnedUnit).toBeDefined()
+    expect(respawnedUnit.from).toBeUndefined()
+  })
+})
+
 describe('Régression — tour 20 avec capture', () => {
   it('au tour 20 avec capture : la partie ne se termine pas avant le respawn', () => {
     const state = buildCaptureState(20)

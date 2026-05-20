@@ -22,7 +22,7 @@ export function applyMove(state, move, mountainHexes = []) {
   nextUnits[selectedUnit.squadKey] = {
     ...nextUnits[selectedUnit.squadKey],
     roster: nextUnits[selectedUnit.squadKey].roster.map((u, i) =>
-      i === selectedUnit.unitIndex ? { ...u, col: targetHex.col, row: targetHex.row, from: undefined } : u
+      i === selectedUnit.unitIndex ? { ...u, col: targetHex.col, row: targetHex.row, from: [u.col, u.row] } : u
     ),
   }
 
