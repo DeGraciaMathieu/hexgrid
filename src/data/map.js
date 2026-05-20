@@ -32,9 +32,13 @@ const BASE_MAP = RAW_MAP.map(row =>
   row.split('').map(ch => ch === 'm' ? 'open' : (CHAR_TO_TYPE[ch] || 'open'))
 )
 
-const CLUSTER_SEEDS = 6
-const CLUSTER_SPREAD_CHANCE = 0.5
-const CLUSTER_MAX_SIZE = 2
+const MOUNTAIN_SEEDS = 4
+const MOUNTAIN_SPREAD_CHANCE = 0.4
+const MOUNTAIN_MAX_SIZE = 2
+
+const WATER_SEEDS = 2
+const WATER_SPREAD_CHANCE = 0.4
+const WATER_MAX_SIZE = 2
 
 const CUBE_DIRS = [
   [+1, -1,  0], [-1, +1,  0],
@@ -66,43 +70,47 @@ export function generateMap() {
 
   const isOpen = (col, row) => map[row]?.[col] === 'open'
 
-  // Choisit CLUSTER_SEEDS graines aléatoires parmi les hexes ouverts
-  const openHexes = []
-  for (let row = 1; row <= 7; row++) {
-    for (let col = 0; col < COLS; col++) {
-      if (isOpen(col, row)) openHexes.push({ col, row })
+  const getOpenHexes = () => {
+    const hexes = []
+    for (let row = 1; row <= 7; row++) {
+      for (let col = 0; col < COLS; col++) {
+        if (isOpen(col, row)) hexes.push({ col, row })
+      }
     }
+    return hexes
   }
 
-  for (let i = 0; i < CLUSTER_SEEDS; i++) {
-    const j = i + Math.floor(Math.random() * (openHexes.length - i))
-    ;[openHexes[i], openHexes[j]] = [openHexes[j], openHexes[i]]
-  }
-
-  for (let i = 0; i < CLUSTER_SEEDS; i++) {
-    const seed = openHexes[i]
-    if (!isOpen(seed.col, seed.row)) continue
-
-    map[seed.row][seed.col] = 'mountain'
-    const frontier = [seed]
-    let size = 1
-
-    while (frontier.length > 0 && size < CLUSTER_MAX_SIZE) {
-      const idx = Math.floor(Math.random() * frontier.length)
-      const current = frontier[idx]
-      frontier.splice(idx, 1)
-
-      for (const nb of getNeighbors(current.col, current.row)) {
-        if (size >= CLUSTER_MAX_SIZE) break
-        if (!isOpen(nb.col, nb.row)) continue
-        if (Math.random() < CLUSTER_SPREAD_CHANCE) {
-          map[nb.row][nb.col] = 'mountain'
-          frontier.push(nb)
-          size++
+  const placeCluster = (terrain, seeds, spreadChance, maxSize) => {
+    const openHexes = getOpenHexes()
+    for (let i = 0; i < seeds; i++) {
+      const j = i + Math.floor(Math.random() * (openHexes.length - i))
+      ;[openHexes[i], openHexes[j]] = [openHexes[j], openHexes[i]]
+    }
+    for (let i = 0; i < seeds; i++) {
+      const seed = openHexes[i]
+      if (!isOpen(seed.col, seed.row)) continue
+      map[seed.row][seed.col] = terrain
+      const frontier = [seed]
+      let size = 1
+      while (frontier.length > 0 && size < maxSize) {
+        const idx = Math.floor(Math.random() * frontier.length)
+        const current = frontier[idx]
+        frontier.splice(idx, 1)
+        for (const nb of getNeighbors(current.col, current.row)) {
+          if (size >= maxSize) break
+          if (!isOpen(nb.col, nb.row)) continue
+          if (Math.random() < spreadChance) {
+            map[nb.row][nb.col] = terrain
+            frontier.push(nb)
+            size++
+          }
         }
       }
     }
   }
+
+  placeCluster('mountain', MOUNTAIN_SEEDS, MOUNTAIN_SPREAD_CHANCE, MOUNTAIN_MAX_SIZE)
+  placeCluster('water', WATER_SEEDS, WATER_SPREAD_CHANCE, WATER_MAX_SIZE)
 
   return map
 }
