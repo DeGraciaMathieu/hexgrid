@@ -18,6 +18,28 @@ function buildUnits(p1Roster, p2Roster) {
 // Référence : P2 en col=1 row=0 (position de départ, pas dans le territoire P1).
 //   → pas de flanquement → P1 score normalement les cols 0-5 derrière sa ligne.
 
+// Régression : si toutes les unités de P2 franchissent la ligne médiane (territoire ennemi),
+// isTop doit rester true (base en haut). Avec l'ancien code (isTop dérivé de la position moyenne),
+// isTop basculait à false → P2 ne scorait que les hexes sous ses unités (quasi zéro).
+// Avec le fix, P2 score correctement tous les hexes derrière sa ligne vers sa base (haut).
+describe('isTop stable même quand toutes les unités sont en territoire ennemi', () => {
+  it('P2 entièrement dans la moitié basse : score P2 élevé (orientation top maintenue)', () => {
+    // P2 (base haut) avance toutes ses unités en row=7 (profondément dans le territoire P1)
+    // P1 (base bas) reste en position de départ sur row=8
+    const units = buildUnits(
+      [[1, 8], [3, 8], [5, 8], [7, 8], [11, 8]],   // p1 en bas (normal)
+      [[1, 7], [3, 7], [5, 7], [7, 7], [11, 7]],   // p2 tout en bas (territoire ennemi)
+    )
+
+    const scores = countTerritoryHexes(units)
+
+    // Avec isTop=true stable : P2 score tous les hexes au-dessus de ses unités (rows 0-6 ≈ 80+ hexes)
+    // Avec isTop=false (bug) : P2 ne scorerait que les hexes sous row 7, soit quasi zéro
+    expect(scores.p2).toBeGreaterThan(50)
+    expect(scores.p1).toBeGreaterThan(0)
+  })
+})
+
 describe('Flanc latéral ennemi — scoring territorial', () => {
   const p1Units = [[6, 5], [8, 5], [10, 5]]
 

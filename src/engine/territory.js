@@ -1,11 +1,10 @@
 import { computeFrontierPoints, checkExtensions } from './frontier.js'
-import { COLS, ROWS, HEX_SIZE } from '../data/map.js'
+import { COLS, ROWS, HEX_SIZE, SQUADS } from '../data/map.js'
 
 const PADDING = 20
 const H = Math.sqrt(3) * HEX_SIZE
 const HSPACE = 1.5 * HEX_SIZE
 const VSPACE = H
-const SVG_H = VSPACE * (ROWS - 1) + H + VSPACE / 2 + PADDING * 2
 
 function hexCenter(col, row) {
   const cx = PADDING + HEX_SIZE + col * HSPACE
@@ -35,8 +34,7 @@ export function countTerritoryHexes(units) {
   for (const [squadKey, squad] of Object.entries(units)) {
     const sorted = [...squad.roster].sort((a, b) => a.col - b.col)
     const unitPts = sorted.map(u => hexCenter(u.col, u.row))
-    const avgY = unitPts.reduce((s, p) => s + p.cy, 0) / unitPts.length
-    const isTop = avgY < SVG_H / 2
+    const isTop = SQUADS[squadKey].startRow < ROWS / 2
 
     const enemyRosters = Object.entries(units)
       .filter(([k]) => k !== squadKey)
