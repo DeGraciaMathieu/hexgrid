@@ -8,22 +8,21 @@ export const TERRAIN = {
   forest:    { fill: 'var(--terrain-forest)',    label: 'Forêt',          icon: '♣'   },
   water:     { fill: 'var(--terrain-water)',     label: 'Eau',            icon: '~'   },
   mountain:  { fill: 'var(--terrain-mountain)',  label: 'Hauteur',        icon: '▲'   },
-  urban:     { fill: 'var(--terrain-urban)',     label: 'Ruine',          icon: '▢'   },
   objective: { fill: 'var(--terrain-objective)', label: 'Objectif',       icon: '✶'   },
 }
 
 const CHAR_TO_TYPE = {
   o: 'open', f: 'forest', w: 'water',
-  m: 'mountain', u: 'urban', X: 'objective',
+  m: 'mountain', X: 'objective',
 }
 
 const RAW_MAP = [
   'oooofffooomoo',
   'oofffoommmmoo',
   'oofoooooommoo',
-  'ooouoXoooowoo',
-  'oouuuoooowwwo',
-  'oouooooowwooo',
+  'oooooXoooowoo',
+  'ooooooooowwwo',
+  'oooooooowwooo',
   'ooooXooofoooo',
   'ooofoofffoooo',
   'oooofffooommo',
@@ -33,24 +32,76 @@ const BASE_MAP = RAW_MAP.map(row =>
   row.split('').map(ch => ch === 'm' ? 'open' : (CHAR_TO_TYPE[ch] || 'open'))
 )
 
-const MOUNTAIN_COUNT = 8
+const CLUSTER_SEEDS = 6
+const CLUSTER_SPREAD_CHANCE = 0.5
+const CLUSTER_MAX_SIZE = 2
+
+const CUBE_DIRS = [
+  [+1, -1,  0], [-1, +1,  0],
+  [+1,  0, -1], [-1,  0, +1],
+  [ 0, +1, -1], [ 0, -1, +1],
+]
+
+function toCube(col, row) {
+  const x = col
+  const z = row - (col - col % 2) / 2
+  return { x, z }
+}
+
+function fromCube(x, z) {
+  const col = x
+  const row = z + (col - col % 2) / 2
+  return { col, row }
+}
+
+function getNeighbors(col, row) {
+  const { x, z } = toCube(col, row)
+  return CUBE_DIRS
+    .map(([dx, , dz]) => fromCube(x + dx, z + dz))
+    .filter(h => h.col >= 0 && h.col < COLS && h.row >= 1 && h.row <= 7)
+}
 
 export function generateMap() {
   const map = BASE_MAP.map(row => [...row])
 
-  const candidates = []
+  const isOpen = (col, row) => map[row]?.[col] === 'open'
+
+  // Choisit CLUSTER_SEEDS graines aléatoires parmi les hexes ouverts
+  const openHexes = []
   for (let row = 1; row <= 7; row++) {
     for (let col = 0; col < COLS; col++) {
-      if (map[row][col] === 'open') candidates.push({ col, row })
+      if (isOpen(col, row)) openHexes.push({ col, row })
     }
   }
 
-  // Fisher-Yates shuffle partiel pour choisir MOUNTAIN_COUNT hexes
-  for (let i = 0; i < MOUNTAIN_COUNT; i++) {
-    const j = i + Math.floor(Math.random() * (candidates.length - i))
-    ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
-    const { col, row } = candidates[i]
-    map[row][col] = 'mountain'
+  for (let i = 0; i < CLUSTER_SEEDS; i++) {
+    const j = i + Math.floor(Math.random() * (openHexes.length - i))
+    ;[openHexes[i], openHexes[j]] = [openHexes[j], openHexes[i]]
+  }
+
+  for (let i = 0; i < CLUSTER_SEEDS; i++) {
+    const seed = openHexes[i]
+    if (!isOpen(seed.col, seed.row)) continue
+
+    map[seed.row][seed.col] = 'mountain'
+    const frontier = [seed]
+    let size = 1
+
+    while (frontier.length > 0 && size < CLUSTER_MAX_SIZE) {
+      const idx = Math.floor(Math.random() * frontier.length)
+      const current = frontier[idx]
+      frontier.splice(idx, 1)
+
+      for (const nb of getNeighbors(current.col, current.row)) {
+        if (size >= CLUSTER_MAX_SIZE) break
+        if (!isOpen(nb.col, nb.row)) continue
+        if (Math.random() < CLUSTER_SPREAD_CHANCE) {
+          map[nb.row][nb.col] = 'mountain'
+          frontier.push(nb)
+          size++
+        }
+      }
+    }
   }
 
   return map
