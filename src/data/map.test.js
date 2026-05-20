@@ -10,7 +10,7 @@ describe('generateMap - symétrie', () => {
           const terrain = map[row][col]
           if (terrain === 'mountain' || terrain === 'water') {
             const mirrorCol = COLS - 1 - col
-            const mirrorRow = ROWS - 1 - row
+            const mirrorRow = ROWS - 1 - row - col % 2
             expect(map[mirrorRow][mirrorCol]).toBe(terrain)
           }
         }

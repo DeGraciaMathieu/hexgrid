@@ -76,7 +76,7 @@ export function generateMap() {
 
   const place = (terrain, col, row) => {
     map[row][col] = terrain
-    map[ROWS - 1 - row][COLS - 1 - col] = terrain
+    map[ROWS - 1 - row - col % 2][COLS - 1 - col] = terrain
   }
 
   const placeCluster = (terrain, seeds, spreadChance, maxSize) => {
