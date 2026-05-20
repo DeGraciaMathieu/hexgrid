@@ -117,6 +117,9 @@ function initUnits() {
 
 export default function App() {
   const [map] = useState(generateMap)
+  const mountainHexes = map.flatMap((rowArr, row) =>
+    rowArr.flatMap((type, col) => type === 'mountain' ? [{ col, row }] : [])
+  )
   const [units, setUnits] = useState(initUnits)
   const [selectedUnit, setSelectedUnit] = useState(null) // { squadKey, unitIndex }
   const [targetHex, setTargetHex] = useState(null)       // { col, row }
@@ -154,11 +157,12 @@ export default function App() {
         COLS,
         ROWS,
         occupiedHexes,
+        mountainHexes,
       )
     : []
 
   const threatenedEnemies = phase === 'move' && selectedUnit && targetHex
-    ? getThreatenedEnemies(selectedUnit, targetHex, units)
+    ? getThreatenedEnemies(selectedUnit, targetHex, units, mountainHexes)
     : []
 
   const respawnHexes = (() => {
@@ -274,7 +278,7 @@ export default function App() {
   useEffect(() => {
     if (gameOver || activePlayer !== AI_PLAYER || phase !== 'move') return
 
-    const decision = computeAIMove(units, AI_PLAYER)
+    const decision = computeAIMove(units, AI_PLAYER, mountainHexes)
 
     // Pré-calcul atomique de tous les changements d'état
     let nextUnits, capturedUnitsData, nextHistory
@@ -282,7 +286,7 @@ export default function App() {
     if (decision) {
       const aiUnit = { squadKey: AI_PLAYER, unitIndex: decision.unitIndex }
       const target = { col: decision.col, row: decision.row }
-      const threatened = getThreatenedEnemies(aiUnit, target, units)
+      const threatened = getThreatenedEnemies(aiUnit, target, units, mountainHexes)
 
       capturedUnitsData = threatened.map(({ squadKey, unitIndex: ui }) => ({
         squadKey,
