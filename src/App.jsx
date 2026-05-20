@@ -23,6 +23,7 @@ export default function App() {
   const [phase, setPhase] = useState('move')             // 'move' | 'respawn'
   const [respawnQueue, setRespawnQueue] = useState([])   // [{ squadKey, unit }]
   const [turn, setTurn] = useState(1)
+  const [activePlayer, setActivePlayer] = useState('p1')
 
   const occupiedHexes = selectedUnit
     ? Object.entries(units).flatMap(([key, squad]) =>
@@ -60,6 +61,7 @@ export default function App() {
 
   function handleSelectUnit(squadKey, unitIndex) {
     if (phase === 'respawn') return
+    if (squadKey !== activePlayer) return
     if (selectedUnit?.squadKey === squadKey && selectedUnit?.unitIndex === unitIndex) {
       setSelectedUnit(null)
       setTargetHex(null)
@@ -113,6 +115,7 @@ export default function App() {
     setSelectedUnit(null)
     setTargetHex(null)
     setTurn(t => Math.min(t + 1, 20))
+    setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
 
     if (capturedUnitsData.length > 0) {
       setRespawnQueue(capturedUnitsData)
@@ -187,7 +190,9 @@ export default function App() {
 
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, letterSpacing: '0.2em', color: 'var(--text-dim)', marginBottom: 6 }}>
-          <span style={{ textTransform: 'uppercase' }}>tour</span>
+          <span style={{ color: units[activePlayer].color, textTransform: 'uppercase' }}>
+            {units[activePlayer].label.split('//')[1].trim()}
+          </span>
           <span><span style={{ color: 'var(--text)' }}>{turn}</span> / 20</span>
         </div>
         <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
