@@ -40,6 +40,66 @@ describe('isTop stable même quand toutes les unités sont en territoire ennemi'
   })
 })
 
+describe('Territoire de base — sans ennemi menaçant', () => {
+  it('P1 (base bas) score des hexes derrière sa ligne quand P2 est en position de départ', () => {
+    // P2 reste en row=0 (sa base), sans pression sur P1
+    const units = buildUnits(
+      [[1, 6], [5, 6], [9, 6]],   // p1 avancé en row=6
+      [[1, 0], [5, 0], [9, 0]],   // p2 en position de départ (row=0)
+    )
+    const scores = countTerritoryHexes(units)
+    // P1 doit scorer tous les hexes entre sa ligne et sa base (rows 7-8)
+    expect(scores.p1).toBeGreaterThan(0)
+  })
+
+  it('P2 (base haut) score des hexes derrière sa ligne quand P1 est en position de départ', () => {
+    const units = buildUnits(
+      [[1, 8], [5, 8], [9, 8]],   // p1 en position de départ (row=8)
+      [[1, 2], [5, 2], [9, 2]],   // p2 avancé en row=2
+    )
+    const scores = countTerritoryHexes(units)
+    // P2 doit scorer tous les hexes entre sa ligne et sa base (rows 0-1)
+    expect(scores.p2).toBeGreaterThan(0)
+  })
+})
+
+describe('Ennemi bloqueur de colonne — règle §6', () => {
+  it('une unité ennemie infiltrée dans une colonne annule le scoring de cette colonne vers la base', () => {
+    // P1 tient la ligne en row=5. P2 infiltre une unité en col=5, row=7 (entre P1 et la base P1).
+    const avecBloqueur = buildUnits(
+      [[1, 5], [5, 5], [9, 5]],   // p1 en ligne
+      [[5, 7]],                    // p2 infiltré : col=5, plus proche de la base p1 que certains hexes
+    )
+    const sansBloq = buildUnits(
+      [[1, 5], [5, 5], [9, 5]],
+      [[5, 0]],                    // p2 en position de départ, sans pression
+    )
+    const scoreAvec = countTerritoryHexes(avecBloqueur).p1
+    const scoreSans = countTerritoryHexes(sansBloq).p1
+    // L'ennemi bloqueur en col=5 annule tous les hexes de col=5 entre lui et la base p1
+    expect(scoreAvec).toBeLessThan(scoreSans)
+  })
+})
+
+describe('Ennemi infiltré — repli de frontière et scoring réduit', () => {
+  it('un ennemi derrière la ligne provoque un repli qui réduit le territoire scoré', () => {
+    // P1 tient cols 3-9 en row=5. P2 infiltre une unité en col=6, row=6 (derrière la ligne P1).
+    // La frontière doit replier pour exclure l'intrus → score P1 inférieur au cas sans infiltration.
+    const avecInfiltré = buildUnits(
+      [[3, 5], [6, 5], [9, 5]],
+      [[6, 6]],                    // p2 infiltré derrière la frontière p1
+    )
+    const sansInfiltré = buildUnits(
+      [[3, 5], [6, 5], [9, 5]],
+      [[6, 0]],                    // p2 en position de départ
+    )
+    const scoreAvec = countTerritoryHexes(avecInfiltré).p1
+    const scoreSans = countTerritoryHexes(sansInfiltré).p1
+    expect(scoreAvec).toBeLessThan(scoreSans)
+  })
+})
+
+
 describe('Flanc latéral ennemi — scoring territorial', () => {
   const p1Units = [[6, 5], [8, 5], [10, 5]]
 
