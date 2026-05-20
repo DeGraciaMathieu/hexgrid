@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { COLS, ROWS, HEX_SIZE, TERRAIN, MAP } from '../data/map.js'
 import { computeFrontierPoints, checkExtensions } from '../engine/frontier.js'
+import { interpolateFrontierY } from '../engine/territory.js'
 
 const PADDING = 20
 const W = 2 * HEX_SIZE
@@ -142,6 +143,49 @@ function MovementTrails({ units }) {
         )
       })
   )
+}
+
+function TerritoryHexes({ units }) {
+  return Object.entries(units).flatMap(([squadKey, squad]) => {
+    const sorted = [...squad.roster].sort((a, b) => a.col - b.col)
+    const unitPts = sorted.map(u => hexCenter(u.col, u.row))
+    const avgY = unitPts.reduce((s, p) => s + p.cy, 0) / unitPts.length
+    const isTop = avgY < SVG_H / 2
+
+    const enemyPts = Object.entries(units)
+      .filter(([k]) => k !== squadKey)
+      .flatMap(([, s]) => s.roster.map(u => hexCenter(u.col, u.row)))
+
+    const frontierPts = computeFrontierPoints(unitPts, isTop, enemyPts)
+    if (frontierPts.length === 0) return []
+
+    const { leftBlocked, rightBlocked } = checkExtensions(frontierPts, isTop, enemyPts)
+
+    const hexes = []
+    for (let col = 0; col < COLS; col++) {
+      for (let row = 0; row < ROWS; row++) {
+        const { cx, cy } = hexCenter(col, row)
+
+        if (leftBlocked && cx < frontierPts[0].cx) continue
+        if (rightBlocked && cx > frontierPts[frontierPts.length - 1].cx) continue
+
+        const frontierY = interpolateFrontierY(frontierPts, cx)
+        const inTerritory = isTop ? cy <= frontierY : cy >= frontierY
+        if (!inTerritory) continue
+
+        hexes.push(
+          <polygon
+            key={`terr-${squadKey}-${col}-${row}`}
+            points={hexPoints(cx, cy, HEX_SIZE - 1.5)}
+            fill={squad.color}
+            fillOpacity="0.15"
+            style={{ pointerEvents: 'none' }}
+          />
+        )
+      }
+    }
+    return hexes
+  })
 }
 
 function ReachableOverlay({ reachableHexes, color }) {
@@ -394,6 +438,7 @@ export default function HexMap({ units, selectedUnit, targetHex, reachableHexes,
             ))
           )}
 
+          <TerritoryHexes units={units} />
           <ReachableOverlay reachableHexes={reachableHexes} color={selectedColor} />
           <RespawnOverlay respawnHexes={respawnHexes} color={respawnSquadColor} />
           <TargetPlaceholder targetHex={targetHex} fromHex={selectedPos} color={selectedColor} />

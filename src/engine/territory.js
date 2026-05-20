@@ -13,7 +13,7 @@ function hexCenter(col, row) {
   return { cx, cy }
 }
 
-function interpolateFrontierY(frontierPts, cx) {
+export function interpolateFrontierY(frontierPts, cx) {
   if (cx <= frontierPts[0].cx) return frontierPts[0].cy
   if (cx >= frontierPts[frontierPts.length - 1].cx) return frontierPts[frontierPts.length - 1].cy
   for (let i = 0; i < frontierPts.length - 1; i++) {
