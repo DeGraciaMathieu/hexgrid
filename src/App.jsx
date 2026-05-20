@@ -119,6 +119,7 @@ export default function App() {
   const [turn, setTurn] = useState(1)
   const [activePlayer, setActivePlayer] = useState('p1')
   const [scoreHistory, setScoreHistory] = useState({ p1: [], p2: [] })
+  const [gameOver, setGameOver] = useState(false)
 
   const occupiedHexes = selectedUnit
     ? Object.entries(units).flatMap(([key, squad]) =>
@@ -206,21 +207,28 @@ export default function App() {
     const territoryCounts = countTerritoryHexes(nextUnits)
     const playerScore = territoryCounts[activePlayer] ?? 0
 
+    const nextHistory = {
+      ...scoreHistory,
+      [activePlayer]: [...scoreHistory[activePlayer], (scoreHistory[activePlayer].at(-1) ?? 0) + playerScore],
+    }
+
     setUnits(nextUnits)
     setSelectedUnit(null)
     setTargetHex(null)
-    setTurn(t => Math.min(t + 1, 20))
-    setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
-    setScoreHistory(h => {
-      const prev = h[activePlayer]
-      const cumulative = (prev.at(-1) ?? 0) + playerScore
-      return { ...h, [activePlayer]: [...prev, cumulative] }
-    })
+    setScoreHistory(nextHistory)
 
     if (capturedUnitsData.length > 0) {
       setRespawnQueue(capturedUnitsData)
       setPhase('respawn')
     }
+
+    if (turn === 20) {
+      setGameOver(true)
+      return
+    }
+
+    setTurn(t => t + 1)
+    setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
   }
 
   function handleRespawnPlace(col, row) {
@@ -245,6 +253,63 @@ export default function App() {
   function handleCancel() {
     setSelectedUnit(null)
     setTargetHex(null)
+  }
+
+  if (gameOver) {
+    const p1Score = scoreHistory.p1.at(-1) ?? 0
+    const p2Score = scoreHistory.p2.at(-1) ?? 0
+    const winner = p1Score > p2Score ? units.p1 : p2Score > p1Score ? units.p2 : null
+    return (
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', padding: '32px 20px 60px' }}>
+        <div style={{
+          background: 'var(--bg-2)',
+          border: '1px solid var(--line)',
+          borderRadius: 4,
+          padding: '48px 32px',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.3em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 16 }}>
+            // fin de partie · tour 20
+          </div>
+          {winner ? (
+            <>
+              <div style={{ fontFamily: "'Major Mono Display', monospace", fontSize: 'clamp(24px, 4vw, 36px)', color: winner.color, marginBottom: 8 }}>
+                {winner.label.split('//')[1].trim()}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 32 }}>
+                victoire
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: "'Major Mono Display', monospace", fontSize: 'clamp(24px, 4vw, 36px)', color: 'var(--text)', marginBottom: 8 }}>
+                égalité
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 32 }}>
+                même score
+              </div>
+            </>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 40, marginBottom: 40 }}>
+            {Object.entries(units).map(([key, squad]) => {
+              const score = key === 'p1' ? p1Score : p2Score
+              return (
+                <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: 11, letterSpacing: '0.2em', color: squad.color, textTransform: 'uppercase' }}>
+                    {squad.label.split('//')[1].trim()}
+                  </span>
+                  <span style={{ fontFamily: "'Major Mono Display', monospace", fontSize: 28, color: 'var(--text)' }}>
+                    {score}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>pts</span>
+                </div>
+              )
+            })}
+          </div>
+          <ScoreChart scoreHistory={scoreHistory} units={units} />
+        </div>
+      </div>
+    )
   }
 
   return (
