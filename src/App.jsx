@@ -5,12 +5,11 @@ import { getReachableHexes } from './engine/movement.js'
 import { getThreatenedEnemies } from './engine/combat.js'
 import { countTerritoryHexes } from './engine/territory.js'
 import { computeAIMove, computeAIRespawn } from './engine/ai.js'
+import { applyMove, applyRespawn, MAX_TURNS } from './engine/gameflow.js'
 
 const MOVE_RANGE = 2
 const AI_PLAYER = 'p2'
 const AI_STEP_MS = 600 // TODO: dépend du territoire (§3 core-game.md)
-
-const MAX_TURNS = 20
 const PAD_LEFT = 52
 const PAD_TOP = 16
 const PAD_BOTTOM = 24
@@ -115,7 +114,71 @@ function initUnits() {
   )
 }
 
+function StartScreen({ onSelect }) {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 420, width: '100%', padding: '0 20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 11, letterSpacing: '0.3em', color: 'var(--accent)', textTransform: 'uppercase' }}>
+            // sector-07 / recon overlay
+          </span>
+          <h1 style={{
+            fontFamily: "'Major Mono Display', monospace",
+            fontSize: 'clamp(28px, 5vw, 44px)',
+            fontWeight: 400,
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+            margin: 0,
+          }}>
+            hex grid
+          </h1>
+          <span style={{ fontSize: 13, color: 'var(--text-dim)', letterSpacing: '0.05em' }}>
+            <span className="blink" />
+            sélectionnez un mode de jeu
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[
+            { mode: 'ai', label: 'vs IA', desc: 'joueur 1 contre l\'intelligence artificielle' },
+            { mode: '2p', label: '2 joueurs', desc: 'deux joueurs sur le même écran' },
+          ].map(({ mode, label, desc }) => (
+            <button
+              key={mode}
+              onClick={() => onSelect(mode)}
+              style={{
+                background: 'var(--bg-2)',
+                border: '1px solid var(--line)',
+                borderRadius: 4,
+                padding: '16px 20px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                transition: 'border-color 0.15s',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--line)'}
+            >
+              <span style={{ fontSize: 13, color: 'var(--text)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.05em' }}>{desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  const [gameMode, setGameMode] = useState(null)
   const [map] = useState(generateMap)
   const mountainHexes = map.flatMap((rowArr, row) =>
     rowArr.flatMap((type, col) => type === 'mountain' ? [{ col, row }] : [])
@@ -129,10 +192,11 @@ export default function App() {
   const [activePlayer, setActivePlayer] = useState('p1')
   const [scoreHistory, setScoreHistory] = useState({ p1: [], p2: [] })
   const [gameOver, setGameOver] = useState(false)
+  const [pendingGameOver, setPendingGameOver] = useState(false)
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.code === 'Space' && phase === 'move' && selectedUnit && targetHex && activePlayer !== AI_PLAYER) {
+      if (e.code === 'Space' && phase === 'move' && selectedUnit && targetHex && !(gameMode === 'ai' && activePlayer === AI_PLAYER)) {
         e.preventDefault()
         handleConfirmMove()
       }
@@ -179,6 +243,7 @@ export default function App() {
   function handleSelectUnit(squadKey, unitIndex) {
     if (phase === 'respawn') return
     if (squadKey !== activePlayer) return
+    if (gameMode === 'ai' && activePlayer === AI_PLAYER) return
     if (selectedUnit?.squadKey === squadKey && selectedUnit?.unitIndex === unitIndex) {
       setSelectedUnit(null)
       setTargetHex(null)
@@ -190,11 +255,11 @@ export default function App() {
 
   function handleSelectHex(col, row) {
     if (phase === 'respawn') {
-      if (respawnQueue[0]?.squadKey === AI_PLAYER) return
+      if (gameMode === 'ai' && respawnQueue[0]?.squadKey === AI_PLAYER) return
       handleRespawnPlace(col, row)
       return
     }
-    if (activePlayer === AI_PLAYER) return
+    if (gameMode === 'ai' && activePlayer === AI_PLAYER) return
     if (!selectedUnit) return
     const isReachable = reachableHexes.some(h => h.col === col && h.row === row)
     if (isReachable) setTargetHex({ col, row })
@@ -203,187 +268,112 @@ export default function App() {
   function handleConfirmMove() {
     if (!selectedUnit || !targetHex) return
 
-    const capturedUnitsData = threatenedEnemies.map(({ squadKey, unitIndex }) => ({
-      squadKey,
-      unit: { ...units[squadKey].roster[unitIndex] },
-    }))
-
-    const nextUnits = { ...units }
-
-    const roster = nextUnits[selectedUnit.squadKey].roster.map((u, i) =>
-      i === selectedUnit.unitIndex ? { ...u, col: targetHex.col, row: targetHex.row, from: undefined } : u
+    const next = applyMove(
+      { units, turn, activePlayer, scoreHistory, phase, respawnQueue, gameOver, pendingGameOver },
+      { selectedUnit, targetHex },
+      mountainHexes,
     )
-    nextUnits[selectedUnit.squadKey] = { ...nextUnits[selectedUnit.squadKey], roster }
 
-    const capturedBySquad = {}
-    threatenedEnemies.forEach(({ squadKey, unitIndex }) => {
-      if (!capturedBySquad[squadKey]) capturedBySquad[squadKey] = new Set()
-      capturedBySquad[squadKey].add(unitIndex)
-    })
-    Object.entries(capturedBySquad).forEach(([squadKey, indices]) => {
-      nextUnits[squadKey] = {
-        ...nextUnits[squadKey],
-        roster: nextUnits[squadKey].roster.filter((_, i) => !indices.has(i)),
-      }
-    })
-
-    const territoryCounts = countTerritoryHexes(nextUnits)
-    const playerScore = territoryCounts[activePlayer] ?? 0
-
-    const nextHistory = {
-      ...scoreHistory,
-      [activePlayer]: [...scoreHistory[activePlayer], (scoreHistory[activePlayer].at(-1) ?? 0) + playerScore],
-    }
-
-    setUnits(nextUnits)
+    setUnits(next.units)
     setSelectedUnit(null)
     setTargetHex(null)
-    setScoreHistory(nextHistory)
-
-    if (capturedUnitsData.length > 0) {
-      setRespawnQueue(capturedUnitsData)
-      setPhase('respawn')
-    }
-
-    if (turn === 20) {
-      setGameOver(true)
-      return
-    }
-
-    setTurn(t => t + 1)
-    setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
+    setScoreHistory(next.scoreHistory)
+    setRespawnQueue(next.respawnQueue)
+    setPhase(next.phase)
+    setTurn(next.turn)
+    setActivePlayer(next.activePlayer)
+    setGameOver(next.gameOver)
+    setPendingGameOver(next.pendingGameOver)
   }
 
   function handleRespawnPlace(col, row) {
     const isValid = respawnHexes.some(h => h.col === col && h.row === row)
     if (!isValid) return
 
-    const { squadKey, unit } = respawnQueue[0]
-    setUnits(prev => {
-      const next = { ...prev }
-      next[squadKey] = {
-        ...next[squadKey],
-        roster: [...next[squadKey].roster, { ...unit, col, row, from: undefined }],
-      }
-      return next
-    })
+    const next = applyRespawn(
+      { units, respawnQueue, phase, pendingGameOver, gameOver },
+      { col, row },
+    )
 
-    const newQueue = respawnQueue.slice(1)
-    setRespawnQueue(newQueue)
-    if (newQueue.length === 0) setPhase('move')
+    setUnits(next.units)
+    setRespawnQueue(next.respawnQueue)
+    setPhase(next.phase)
+    setGameOver(next.gameOver)
+    setPendingGameOver(next.pendingGameOver)
   }
 
   // IA : tour de mouvement
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (gameOver || activePlayer !== AI_PLAYER || phase !== 'move') return
+    if (gameMode !== 'ai' || gameOver || activePlayer !== AI_PLAYER || phase !== 'move') return
 
     const decision = computeAIMove(units, AI_PLAYER, mountainHexes)
-
-    // Pré-calcul atomique de tous les changements d'état
-    let nextUnits, capturedUnitsData, nextHistory
-
-    if (decision) {
-      const aiUnit = { squadKey: AI_PLAYER, unitIndex: decision.unitIndex }
-      const target = { col: decision.col, row: decision.row }
-      const threatened = getThreatenedEnemies(aiUnit, target, units, mountainHexes)
-
-      capturedUnitsData = threatened.map(({ squadKey, unitIndex: ui }) => ({
-        squadKey,
-        unit: { ...units[squadKey].roster[ui] },
-      }))
-
-      nextUnits = { ...units }
-      nextUnits[AI_PLAYER] = {
-        ...nextUnits[AI_PLAYER],
-        roster: nextUnits[AI_PLAYER].roster.map((u, i) =>
-          i === decision.unitIndex ? { ...u, col: decision.col, row: decision.row, from: undefined } : u
-        ),
-      }
-
-      const capturedBySquad = {}
-      threatened.forEach(({ squadKey: sk, unitIndex: ui }) => {
-        if (!capturedBySquad[sk]) capturedBySquad[sk] = new Set()
-        capturedBySquad[sk].add(ui)
-      })
-      Object.entries(capturedBySquad).forEach(([sk, indices]) => {
-        nextUnits[sk] = {
-          ...nextUnits[sk],
-          roster: nextUnits[sk].roster.filter((_, i) => !indices.has(i)),
-        }
-      })
-
-      const playerScore = countTerritoryHexes(nextUnits)[AI_PLAYER] ?? 0
-      nextHistory = {
-        ...scoreHistory,
-        [AI_PLAYER]: [...scoreHistory[AI_PLAYER], (scoreHistory[AI_PLAYER].at(-1) ?? 0) + playerScore],
-      }
-    } else {
-      capturedUnitsData = []
-      nextUnits = units
-      const playerScore = countTerritoryHexes(units)[AI_PLAYER] ?? 0
-      nextHistory = {
-        ...scoreHistory,
-        [AI_PLAYER]: [...scoreHistory[AI_PLAYER], (scoreHistory[AI_PLAYER].at(-1) ?? 0) + playerScore],
-      }
-    }
-
     const timers = []
 
     if (decision) {
+      const next = applyMove(
+        { units, turn, activePlayer, scoreHistory, phase, respawnQueue, gameOver, pendingGameOver },
+        { selectedUnit: { squadKey: AI_PLAYER, unitIndex: decision.unitIndex }, targetHex: { col: decision.col, row: decision.row } },
+        mountainHexes,
+      )
+
       timers.push(setTimeout(() => setSelectedUnit({ squadKey: AI_PLAYER, unitIndex: decision.unitIndex }), AI_STEP_MS))
       timers.push(setTimeout(() => setTargetHex({ col: decision.col, row: decision.row }), AI_STEP_MS * 2))
+      timers.push(setTimeout(() => {
+        setUnits(next.units)
+        setSelectedUnit(null)
+        setTargetHex(null)
+        setScoreHistory(next.scoreHistory)
+        setRespawnQueue(next.respawnQueue)
+        setPhase(next.phase)
+        setTurn(next.turn)
+        setActivePlayer(next.activePlayer)
+        setGameOver(next.gameOver)
+        setPendingGameOver(next.pendingGameOver)
+      }, AI_STEP_MS * 3))
+    } else {
+      const playerScore = countTerritoryHexes(units)[AI_PLAYER] ?? 0
+      const nextHistory = {
+        ...scoreHistory,
+        [AI_PLAYER]: [...scoreHistory[AI_PLAYER], (scoreHistory[AI_PLAYER].at(-1) ?? 0) + playerScore],
+      }
+      timers.push(setTimeout(() => {
+        setScoreHistory(nextHistory)
+        if (turn === 20) {
+          setGameOver(true)
+          return
+        }
+        setTurn(t => t + 1)
+        setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
+      }, AI_STEP_MS))
     }
 
-    timers.push(setTimeout(() => {
-      setUnits(nextUnits)
-      setSelectedUnit(null)
-      setTargetHex(null)
-      setScoreHistory(nextHistory)
-
-      if (capturedUnitsData.length > 0) {
-        setRespawnQueue(capturedUnitsData)
-        setPhase('respawn')
-      }
-
-      if (turn === 20) {
-        setGameOver(true)
-        return
-      }
-      setTurn(t => t + 1)
-      setActivePlayer(p => p === 'p1' ? 'p2' : 'p1')
-    }, decision ? AI_STEP_MS * 3 : AI_STEP_MS))
-
     return () => timers.forEach(clearTimeout)
-  }, [activePlayer, phase, gameOver])
+  }, [activePlayer, phase, gameOver, pendingGameOver])
 
   // IA : phase de respawn
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (phase !== 'respawn' || respawnQueue.length === 0) return
+    if (gameMode !== 'ai' || phase !== 'respawn' || respawnQueue.length === 0) return
     if (respawnQueue[0].squadKey !== AI_PLAYER) return
 
     const hex = computeAIRespawn(respawnHexes, units, AI_PLAYER)
     if (!hex) return
 
-    const { squadKey, unit } = respawnQueue[0]
-
     const t = setTimeout(() => {
-      setUnits(prev => ({
-        ...prev,
-        [squadKey]: {
-          ...prev[squadKey],
-          roster: [...prev[squadKey].roster, { ...unit, col: hex.col, row: hex.row, from: undefined }],
-        },
-      }))
-
-      const newQueue = respawnQueue.slice(1)
-      setRespawnQueue(newQueue)
-      if (newQueue.length === 0) setPhase('move')
+      const next = applyRespawn(
+        { units, respawnQueue, phase, pendingGameOver, gameOver },
+        hex,
+      )
+      setUnits(next.units)
+      setRespawnQueue(next.respawnQueue)
+      setPhase(next.phase)
+      setGameOver(next.gameOver)
+      setPendingGameOver(next.pendingGameOver)
     }, AI_STEP_MS)
 
     return () => clearTimeout(t)
-  }, [phase, respawnQueue])
+  }, [phase, respawnQueue, pendingGameOver])
 
   function handleCancel() {
     setSelectedUnit(null)
@@ -395,6 +385,10 @@ export default function App() {
   const winner = gameOver
     ? (p1Score > p2Score ? units.p1 : p2Score > p1Score ? units.p2 : null)
     : null
+
+  if (gameMode === null) {
+    return <StartScreen onSelect={setGameMode} />
+  }
 
   return (
     <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', padding: '32px 20px 60px' }}>
