@@ -1,6 +1,7 @@
 export const COLS = 13
 export const ROWS = 9
 export const HEX_SIZE = 32
+export const MOVE_RANGE = 2
 
 export const TERRAIN = {
   open:      { fill: 'var(--terrain-open)',      label: 'Terrain ouvert', icon: null  },

@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react'
 import HexMap from './components/HexMap.jsx'
 import ScoreChart from './components/ScoreChart.jsx'
 import StartScreen from './components/StartScreen.jsx'
-import { SQUADS, COLS, ROWS, generateMap } from './data/map.js'
+import { SQUADS, COLS, ROWS, MOVE_RANGE, generateMap } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
 import { getThreatenedEnemies } from './engine/combat.js'
 import { countTerritoryHexes } from './engine/territory.js'
 import { computeAIMove, computeAIRespawn } from './engine/ai.js'
 import { applyMove, applyRespawn, MAX_TURNS } from './engine/gameflow.js'
 
-const MOVE_RANGE = 2
 const AI_PLAYER = 'p2'
 const AI_STEP_MS = 600 // TODO: dépend du territoire (§3 core-game.md)
 

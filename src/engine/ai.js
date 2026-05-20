@@ -1,9 +1,7 @@
 import { getReachableHexes } from './movement.js'
 import { getThreatenedEnemies } from './combat.js'
 import { countTerritoryHexes } from './territory.js'
-import { COLS, ROWS } from '../data/map.js'
-
-const MOVE_RANGE = 2
+import { COLS, ROWS, MOVE_RANGE } from '../data/map.js'
 
 // Applique un mouvement simulé et retourne les units résultantes ainsi que les captures.
 function simulateMove(units, squadKey, unitIndex, col, row, mountainHexes) {
