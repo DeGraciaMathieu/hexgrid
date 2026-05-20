@@ -4,8 +4,8 @@ import { countTerritoryHexes } from './territory.js'
 import { COLS, ROWS, MOVE_RANGE } from '../data/map.js'
 
 // Applique un mouvement simulé et retourne les units résultantes ainsi que les captures.
-function simulateMove(units, squadKey, unitIndex, col, row, mountainHexes) {
-  const threatened = getThreatenedEnemies({ squadKey, unitIndex }, { col, row }, units, mountainHexes)
+function simulateMove(units, squadKey, unitIndex, col, row, impassableHexes) {
+  const threatened = getThreatenedEnemies({ squadKey, unitIndex }, { col, row }, units, impassableHexes)
 
   const next = { ...units }
   next[squadKey] = {
@@ -57,7 +57,7 @@ export function computeAIRespawn(respawnHexes, units, squadKey) {
 
 // Retourne la meilleure décision de mouvement : { unitIndex, col, row } ou null (passer).
 // Priorité : 1) capture ennemie, 2) gain territorial, 3) avance par défaut.
-export function computeAIMove(units, squadKey, mountainHexes = []) {
+export function computeAIMove(units, squadKey, mountainHexes = [], waterHexes = []) {
   const squad = units[squadKey]
   const currentScore = countTerritoryHexes(units)[squadKey] ?? 0
 
@@ -73,10 +73,10 @@ export function computeAIMove(units, squadKey, mountainHexes = []) {
       )
     )
 
-    const reachable = getReachableHexes(unit.col, unit.row, MOVE_RANGE, COLS, ROWS, occupiedHexes, mountainHexes)
+    const reachable = getReachableHexes(unit.col, unit.row, MOVE_RANGE, COLS, ROWS, occupiedHexes, [...mountainHexes, ...waterHexes])
 
     for (const target of reachable) {
-      const { nextUnits, threatened } = simulateMove(units, squadKey, unitIndex, target.col, target.row, mountainHexes)
+      const { nextUnits, threatened } = simulateMove(units, squadKey, unitIndex, target.col, target.row, [...mountainHexes, ...waterHexes])
 
       const enemyCaptures = threatened.filter(t => t.squadKey !== squadKey).length
       const selfCaptured = threatened.some(t => t.squadKey === squadKey)

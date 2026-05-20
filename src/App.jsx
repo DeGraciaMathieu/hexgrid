@@ -26,6 +26,10 @@ export default function App() {
   const mountainHexes = map.flatMap((rowArr, row) =>
     rowArr.flatMap((type, col) => type === 'mountain' ? [{ col, row }] : [])
   )
+  const waterHexes = map.flatMap((rowArr, row) =>
+    rowArr.flatMap((type, col) => type === 'water' ? [{ col, row }] : [])
+  )
+  const impassableHexes = [...mountainHexes, ...waterHexes]
   const [units, setUnits] = useState(initUnits)
   const [selectedUnit, setSelectedUnit] = useState(null) // { squadKey, unitIndex }
   const [targetHex, setTargetHex] = useState(null)       // { col, row }
@@ -64,7 +68,7 @@ export default function App() {
         COLS,
         ROWS,
         occupiedHexes,
-        mountainHexes,
+        impassableHexes,
       )
     : []
 
@@ -150,7 +154,7 @@ export default function App() {
   useEffect(() => {
     if (gameMode !== 'ai' || gameOver || activePlayer !== AI_PLAYER || phase !== 'move') return
 
-    const decision = computeAIMove(units, AI_PLAYER, mountainHexes)
+    const decision = computeAIMove(units, AI_PLAYER, mountainHexes, waterHexes)
     const timers = []
 
     if (decision) {
