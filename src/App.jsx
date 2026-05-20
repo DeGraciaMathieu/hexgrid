@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import HexMap from './components/HexMap.jsx'
-import ScoreChart from './components/ScoreChart.jsx'
 import StartScreen from './components/StartScreen.jsx'
 import { SQUADS, COLS, ROWS, MOVE_RANGE, generateMap } from './data/map.js'
 import { getReachableHexes } from './engine/movement.js'
@@ -275,7 +274,6 @@ export default function App() {
         })()}
       </header>
 
-      <ScoreChart scoreHistory={scoreHistory} units={units} />
 
       <div style={{ marginBottom: 16 }}>
         {gameOver ? (
